@@ -1,0 +1,4 @@
+For the data cleanup:
+    - Need to check all data and make sure it is properly setup. There could be bad data in the set
+    - For the rankings, the wildcards have no ranking and need to be handled somehow. Delete them from the dataset?
+    - For the Wsets/Lsets, some data is missing. Delete them from dataset? Or extrapolate it from the score which is available?
