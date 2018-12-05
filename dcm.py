@@ -85,9 +85,9 @@ def glickoRanking(df, period, delta_volatility):
     players=list(pandas.Series(list(df.Winner)+list(df.Loser)).value_counts().index)
     glicko=pandas.Series(numpy.ones((len(players),3)),index=players)
     # For an unrated player, we start with a rating of 1500, a RD of 350 and volatility of 0.06
-    glicko_ranking[:,0]*=1500
-    glicko_ranking[:,1]*=350
-    glicko_ranking[:,2]*=0.06
+    glicko[:,0]*=1500
+    glicko[:,1]*=350
+    glicko[:,2]*=0.06
     
     glicko_ranking=[(1500,350,0.06),(1500,350,0.06)]
     for i in range(1,len(data)):
@@ -116,20 +116,17 @@ def glickoRanking(df, period, delta_volatility):
         vol_winner=new_sigma_function(sigma_winner, rating_change_winner, phi_winner, variance_winner, delta_volatility, 0.000001)
         vol_loser=new_sigma_function(sigma_loser, rating_change_loser, phi_loser, variance_loser, delta_volatility, 0.000001)
         
+        # We update both player's rankings
+        glicko[winner]=((glicko_winner+rating_change_winner),variance_winner,vol_winner)
+        glicko[loser]=((glicko_loser+rating_change_loser),variance_loser,vol_loser)
         
-        pwin=1 / (1 + 10 ** ((elol - elow) / 400))    
-        K_win=32
-        K_los=32
-        new_elow=elow+K_win*(1-pwin)
-        new_elol=elol-K_los*(1-pwin)
-        elo[w]=new_elow
-        elo[l]=new_elol
-        ranking_elo.append((elo[data.iloc[i,:].Winner],elo[data.iloc[i,:].Loser])) 
-        if i%5000==0:
+        # We set the new glicko ranking on the next match of each player
+        glicko_ranking.append((glicko[data.iloc[i,:].Winner],glicko[data.iloc[i,:].Loser])) 
+        if i%500==0:
             print(str(i)+" matches computed...")
-    ranking_elo=pd.DataFrame(ranking_elo,columns=["elo_winner","elo_loser"])    
-    ranking_elo["proba_elo"]=1 / (1 + 10 ** ((ranking_elo["elo_loser"] - ranking_elo["elo_winner"]) / 400))   
-    return ranking_elo
+    glicko_ranking=pandas.DataFrame(glicko_ranking,columns=["glicko_winner","glicko_loser"])    
+    glicko_ranking["proba_glicko"]=1 / (1 + 10 ** ((ranking_elo["elo_loser"] - ranking_elo["elo_winner"]) / 400))   
+    data = pandas.concat([data,ranking_elo],1) 
     return df
 
 
@@ -156,11 +153,11 @@ def compute_elo_rankings(data):
         elo[w]=new_elow
         elo[l]=new_elol
         ranking_elo.append((elo[data.iloc[i,:].Winner],elo[data.iloc[i,:].Loser])) 
-        if i%5000==0:
+        if i%500==0:
             print(str(i)+" matches computed...")
     ranking_elo=pandas.DataFrame(ranking_elo,columns=["elo_winner","elo_loser"])    
     ranking_elo["proba_elo"]=1 / (1 + 10 ** ((ranking_elo["elo_loser"] - ranking_elo["elo_winner"]) / 400))  
-    data = pandas.concat([data,elo_rankings],1) 
+    data = pandas.concat([data,ranking_elo],1) 
     return data
 
 
@@ -196,6 +193,6 @@ def new_sigma_function(sigma, delta, phi, variance, tau, error):
     
     
     
-def sigma_convergence_function(x, sigma, delta, phi, variance, tau, error)
+def sigma_convergence_function(x, sigma, delta, phi, variance, tau, error):
     a=math.log(sigma**2)
     return ((math.exp(x)*(delta**2-phi**2-variance-math.exp(x)))/(2*(phi**2+variance+math.exp(x))**2)-(x-a)/tau**2)
