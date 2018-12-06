@@ -48,7 +48,7 @@ For each player that competed we do:
 		rd'=173.7178*phi'
 
 For all player that did not compete in this period:
-	Do only steps 1 and 6 (r and sigma do not change, rd increases).
+	Do only steps 1 and 5. In step 5 when recomputing the rd, multiply sigma by 30: phi*=sqrt(phi^2+(30*sigma)^2)
 
 
 Example to check the algo is correct:
