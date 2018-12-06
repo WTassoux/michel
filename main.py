@@ -47,14 +47,14 @@ indices = df[(df.Date>beg)&(df.Date<=end)].index
 
 # Param based on past data (for a match, will look at the past x days except for the player where we check only the past 5 days)
 x = 150
-print("### Computing basic player data ###")
-features_player  = features_past_generation(features_player_creation,5,"playerft5",df,indices)
-print("### Computing basic match data ###")
-features_h2h     = features_past_generation(features_duo_creation,x,"h2hft",df,indices)
-print("### Computing recent data about matches ###")
-features_general = features_past_generation(features_general_creation,x,"generalft",df,indices)
-print("### Computing basic player data ###")
-features_recent  = features_past_generation(features_recent_creation,x,"recentft",df,indices)
+# print("### Computing basic player data ###")
+# features_player  = features_past_generation(features_player_creation,5,"playerft5",df,indices)
+# print("### Computing basic match data ###")
+# features_h2h     = features_past_generation(features_duo_creation,x,"h2hft",df,indices)
+# print("### Computing recent data about matches ###")
+# features_general = features_past_generation(features_general_creation,x,"generalft",df,indices)
+# print("### Computing basic player data ###")
+# features_recent  = features_past_generation(features_recent_creation,x,"recentft",df,indices)
 
 
 print("Done!")
