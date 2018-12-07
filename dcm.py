@@ -16,7 +16,9 @@ import glob
 import pandas
 import numpy
 import math
-from datetime import datetime, timedelta
+from datetime import *
+from sklearn import preprocessing
+from sklearn.preprocessing import OneHotEncoder
 
 
 # We check if more data is available online
@@ -226,12 +228,13 @@ def features_past_generation(features_creation_function,
     matches_outcomes=[]
     for i,match_indice in enumerate(indices):
         match=data.iloc[match_indice,:]
-        past_matches=data[(data.Date<match.Date)&(data.Date>=match.Date-timedelta(days=days))]
+        matchDate=datetime.strptime(match.Date, '%Y-%m-%d').date()
+        past_matches=data[(data.Date<match.Date)&(data.Date>=str(matchDate-timedelta(days=days)))]
         match_features_outcome_1=features_creation_function(1,match,past_matches)
         match_features_outcome_2=features_creation_function(2,match,past_matches)
         matches_outcomes.append(match_features_outcome_1)
         matches_outcomes.append(match_features_outcome_2)
-        if i%500==0:
+        if i%100==0:
             print(str(i)+"/"+str(len(indices))+" matches treated.")
     train=pandas.DataFrame(matches_outcomes)
     train.columns=[feature_names_prefix+str(i) for i in range(len(train.columns))]
@@ -292,7 +295,7 @@ def features_recent_creation(outcome,match,past_matches):
     if len(todo)==0:
         return [numpy.nan]*7
     # Days since last match
-    dslm=(date-todo.iloc[-1,:].Date).days
+    dslm=(datetime.strptime(date, '%Y-%m-%d').date()-datetime.strptime(todo.iloc[-1,:].Date, '%Y-%m-%d').date()).days
     # Was the last match won ?
     wlmw=int(todo.iloc[-1,:].Winner==player)
     # Ranking of the last player played
@@ -353,3 +356,53 @@ def features_general_creation(outcome,match,past_matches):
     best_ranking=min(best_ranking_as_winner,best_ranking_as_loser)
     features_general.append(best_ranking)
     return features_general
+
+
+def categorical_features_encoding(cat_features):
+    """
+    Categorical features encoding.
+    Simple one-hot encoding.
+    """
+    cat_features=cat_features.apply(preprocessing.LabelEncoder().fit_transform)
+    ohe=OneHotEncoder()
+    cat_features=ohe.fit_transform(cat_features)
+    cat_features=pandas.DataFrame(cat_features.todense())
+    cat_features.columns=["cat_feature_"+str(i) for i in range(len(cat_features.columns))]
+    cat_features=cat_features.astype(int)
+    return cat_features
+
+def features_players_encoding(data):
+    """
+    Encoding of the players . 
+    The players are not encoded like the other categorical features because for each
+    match we encode both players at the same time (we put a 1 in each row corresponding 
+    to the players playing the match for each match).
+    """
+    winners=data.Winner
+    losers=data.Loser
+    le = preprocessing.LabelEncoder()
+    le.fit(list(winners)+list(losers))
+    winners=le.transform(winners)
+    losers=le.transform(losers)
+    encod=numpy.zeros([len(winners),len(le.classes_)])
+    for i in range(len(winners)):
+        encod[i,winners[i]]+=1
+    for i in range(len(losers)):
+        encod[i,losers[i]]+=1
+    columns=["player_"+el for el in le.classes_]
+    players_encoded=pandas.DataFrame(encod,columns=columns)
+    return players_encoded
+
+def features_tournaments_encoding(data):
+    """
+    Encoding of the tournaments . 
+    """
+    tournaments=data.Tournament
+    le = preprocessing.LabelEncoder()
+    tournaments=le.fit_transform(tournaments)
+    encod=numpy.zeros([len(tournaments),len(le.classes_)])
+    for i in range(len(tournaments)):
+        encod[i,tournaments[i]]+=1
+    columns=["tournament_"+el for el in le.classes_]
+    tournaments_encoded=pandas.DataFrame(encod,columns=columns)
+    return tournaments_encoded
