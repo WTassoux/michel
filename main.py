@@ -9,15 +9,17 @@ from dcm import *
 from testfunctions import *
 from datetime import *
 import time
+from model import *
+
 
 # This variable is to measure how long it took to execute the code
 start_time=start_time = time.time()
-
+"""
 ########################################################
 ### TODO ### First we need to retrieve the latest data
 #dataScrapper()
 
-"""
+
 
 ###############################################################
 # We now clean the data and keep only the hyperparameters we need
@@ -102,8 +104,8 @@ features = pandas.concat([features_odds,
 
 features.to_csv("completed_dataframe.csv",index=False)
 
-
 """
+
 
 ######################################
 # Model computation
@@ -115,21 +117,27 @@ features.to_csv("completed_dataframe.csv",index=False)
 
 features=pandas.read_csv("completed_dataframe.csv")
 data=pandas.read_csv("dataframe_output.csv")
+
+beg = datetime(2008,1,1) 
+beg = data.Date.iloc[0]
+end = data.Date.iloc[-1]
+indices = data[(data.Date>beg)&(data.Date<=end)].index
+
 data.Date = data.Date.apply(lambda x:datetime.strptime(x, '%Y-%m-%d'))
 data = data.iloc[indices,:].reset_index(drop=True)
 
-
-start_date=datetime(2011,1,2) #first day of testing set
-test_beginning_match=data[data.Date==start_date].index[0] #id of the first match of the testing set
+#first day of testing set
+start_date=data.Date.iloc[0]
+#id of the first match of the testing set
+test_beginning_match=data[data.Date==start_date].index[0] 
 span_matches=len(data)-test_beginning_match+1
 duration_val_matches=0
-duration_train_matches=10400
+duration_train_matches=1000
 
-# The last day's matches are predicted
-today=datetime(2012,11,11)
+# The last day's matches are predicted - here we manually input the date for our test - should be 3 matches
+today=datetime(2012,11,12)
 first_test_matches=data[data.Date==today].index[0]
-duration_test_matches=len(data)-first_test_matches+1
-
+duration_test_matches=len(data)-first_test_matches
 ## Number of tournaments and players encoded directly in one-hot 
 nb_players=50
 nb_tournaments=5
@@ -147,7 +155,30 @@ early_stop=[5]
 params=numpy.array(numpy.meshgrid(learning_rate,max_depth,min_child_weight,gamma,csbt,lambd,alpha,num_rounds,early_stop)).T.reshape(-1,9).astype(numpy.float)
 xgb_params=params[0]
 
+## We predict the confidence in each outcome, "duration_test_matches" matches at each iteration
+key_matches=numpy.array([test_beginning_match+duration_test_matches*i for i in range(int(span_matches/duration_test_matches)+1)])
+confs=[]
+print(key_matches)
+"""
+for start in key_matches:
+    conf=vibratingAssessStrategyGlobal(start,10400,duration_val_matches,duration_test_matches,xgb_params,nb_players,nb_tournaments,features,data)
+    confs.append(conf)
+confs=[el for el in confs if type(el)!=int]
+conf=pd.concat(confs,0)
+## We add the date to the confidence dataset (can be useful for analysis later)
+dates=data.Date.reset_index()
+dates.columns=["match","date"]
+conf=conf.merge(dates,on="match")
+conf=conf.sort_values("confidence0",ascending=False)
+conf=conf.reset_index(drop=True)
 
+
+## We store this dataset
+conf.to_csv("../Generated Data/confidence_data.csv",index=False)
+
+## Plot of ROI according to the % of matches we bet on
+plotProfits(conf,"Test on the period Jan. 2013 -> March 2018")
+"""
 
 elapsed_time = time.time() - start_time
 print("Done in :"+str(elapsed_time)+" seconds.")
