@@ -124,7 +124,11 @@ test_beginning_match=data[data.Date==start_date].index[0] #id of the first match
 span_matches=len(data)-test_beginning_match+1
 duration_val_matches=0
 duration_train_matches=10400
-duration_test_matches=2000
+
+# The last day's matches are predicted
+today=datetime(2012,11,11)
+first_test_matches=data[data.Date==today].index[0]
+duration_test_matches=len(data)-first_test_matches+1
 
 ## Number of tournaments and players encoded directly in one-hot 
 nb_players=50
