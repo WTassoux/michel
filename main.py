@@ -38,7 +38,7 @@ df.to_csv('dataframe_output.csv', sep=',', encoding='utf-8',index=False)
 print("Accuracy of ATP ranking for match outcome prediction: "+str(testRankingAccuracy(df,'WRank','LRank')))
 print("Accuracy of ELO ranking for match outcome prediction: "+str(testRankingAccuracy(df,'elo_loser','elo_winner')))
 
-"""
+
 
 #############################################
 # Generation of additional hyper parameters
@@ -102,5 +102,49 @@ features = pandas.concat([features_odds,
 
 features.to_csv("completed_dataframe.csv",index=False)
 
+
+"""
+
+######################################
+# Model computation
+# We use only a training set and do not use any validation set
+# in fact, we use hte validation set only for the computation of hyper parameters - in actual data modelling, no validation is performed
+# Then we test the matches of only ONE day.
+# Then everyday we re-run our model training with the results of today's match as additional training data
+
+
+features=pandas.read_csv("completed_dataframe.csv")
+data=pandas.read_csv("dataframe_output.csv")
+data.Date = data.Date.apply(lambda x:datetime.strptime(x, '%Y-%m-%d'))
+data = data.iloc[indices,:].reset_index(drop=True)
+
+
+start_date=datetime(2011,1,2) #first day of testing set
+test_beginning_match=data[data.Date==start_date].index[0] #id of the first match of the testing set
+span_matches=len(data)-test_beginning_match+1
+duration_val_matches=0
+duration_train_matches=10400
+duration_test_matches=2000
+
+## Number of tournaments and players encoded directly in one-hot 
+nb_players=50
+nb_tournaments=5
+
+## XGB hyper parameters
+learning_rate=[0.295] 
+max_depth=[19]
+min_child_weight=[1]
+gamma=[0.8]
+csbt=[0.5]
+lambd=[0]
+alpha=[2]
+num_rounds=[300]
+early_stop=[5]
+params=numpy.array(numpy.meshgrid(learning_rate,max_depth,min_child_weight,gamma,csbt,lambd,alpha,num_rounds,early_stop)).T.reshape(-1,9).astype(numpy.float)
+xgb_params=params[0]
+
+
+
 elapsed_time = time.time() - start_time
 print("Done in :"+str(elapsed_time)+" seconds.")
+
