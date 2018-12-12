@@ -90,6 +90,8 @@ def assessStrategyGlobal(test_beginning_match,
     xtest=xtest.drop(to_drop_players+to_drop_tournaments,1)
     
     ### ML model training
+    print(xval)
+    print(yval)
     model=xgbModelBinary(xtrain,ytrain,xval,yval,xgb_params,sample_weights=None)
     
     # The probability given by the model to each outcome of each match :
@@ -135,12 +137,13 @@ def vibratingAssessStrategyGlobal(km,dur_train,duration_val_matches,delta,xgb_pa
     And the final confidence is the average of the confidences of the models that chose this outcome.
     """
     confTest1=assessStrategyGlobal(km,dur_train,duration_val_matches,delta,xgb_params,nb_players,nb_tournaments,xtrain,data,"1")
-    confTest2=assessStrategyGlobal(km,dur_train-10,duration_val_matches,delta,xgb_params,nb_players,nb_tournaments,xtrain,data,"2")
-    confTest3=assessStrategyGlobal(km,dur_train+10,duration_val_matches,delta,xgb_params,nb_players,nb_tournaments,xtrain,data,"3")
-    confTest4=assessStrategyGlobal(km,dur_train-30,duration_val_matches,delta,xgb_params,nb_players,nb_tournaments,xtrain,data,"4")
-    confTest5=assessStrategyGlobal(km,dur_train+30,duration_val_matches,delta,xgb_params,nb_players,nb_tournaments,xtrain,data,"5")
-    confTest6=assessStrategyGlobal(km,dur_train-45,duration_val_matches,delta,xgb_params,nb_players,nb_tournaments,xtrain,data,"6")
-    confTest7=assessStrategyGlobal(km,dur_train+45,duration_val_matches,delta,xgb_params,nb_players,nb_tournaments,xtrain,data,"7")
+    #confTest2=assessStrategyGlobal(km,dur_train-10,duration_val_matches,delta,xgb_params,nb_players,nb_tournaments,xtrain,data,"2")
+    #confTest3=assessStrategyGlobal(km,dur_train+10,duration_val_matches,delta,xgb_params,nb_players,nb_tournaments,xtrain,data,"3")
+    #confTest4=assessStrategyGlobal(km,dur_train-30,duration_val_matches,delta,xgb_params,nb_players,nb_tournaments,xtrain,data,"4")
+    #confTest5=assessStrategyGlobal(km,dur_train+30,duration_val_matches,delta,xgb_params,nb_players,nb_tournaments,xtrain,data,"5")
+    #confTest6=assessStrategyGlobal(km,dur_train-45,duration_val_matches,delta,xgb_params,nb_players,nb_tournaments,xtrain,data,"6")
+    #confTest7=assessStrategyGlobal(km,dur_train+45,duration_val_matches,delta,xgb_params,nb_players,nb_tournaments,xtrain,data,"7")
+    """
     if (type(confTest1)!=int)&(type(confTest2)!=int)&(type(confTest3)!=int)&(type(confTest4)!=int)&(type(confTest5)!=int):
         c=confTest1.merge(confTest2,on=["match","PSW"])
         c=c.merge(confTest3,on=["match","PSW"])
@@ -158,12 +161,14 @@ def vibratingAssessStrategyGlobal(km,dur_train,duration_val_matches,delta,xgb_pa
         conf.columns=["match","PSW","win0","confidence0"]
     else:
         conf=0
-    return conf
+    """
+    return confTest1
+
 def mer(t):
     # If more than half the models choose the right outcome for the match, we can say
     # in real situation we would have been right. Otherwise wrong.
     # And the confidence in the chosen outcome is the mean of the confidences of the models
-    # that chose this outcome.
+    # we chose this outcome.
     w=np.array([t[0],t[1],t[2],t[3],t[4],t[5],t[6]]).astype(bool)
     conf=np.array([t[7],t[8],t[9],t[10],t[11],t[12],t[13]])
     if w.sum()>=4:

@@ -14,7 +14,7 @@ from model import *
 
 # This variable is to measure how long it took to execute the code
 start_time=start_time = time.time()
-"""
+
 ########################################################
 ### TODO ### First we need to retrieve the latest data
 #dataScrapper()
@@ -104,7 +104,6 @@ features = pandas.concat([features_odds,
 
 features.to_csv("completed_dataframe.csv",index=False)
 
-"""
 
 
 ######################################
@@ -118,11 +117,10 @@ features.to_csv("completed_dataframe.csv",index=False)
 features=pandas.read_csv("completed_dataframe.csv")
 data=pandas.read_csv("dataframe_output.csv")
 
-beg = datetime(2008,1,1) 
 beg = data.Date.iloc[0]
 end = data.Date.iloc[-1]
-indices = data[(data.Date>beg)&(data.Date<=end)].index
 
+indices = data[(data.Date>=beg)&(data.Date<=end)].index
 data.Date = data.Date.apply(lambda x:datetime.strptime(x, '%Y-%m-%d'))
 data = data.iloc[indices,:].reset_index(drop=True)
 
@@ -130,14 +128,17 @@ data = data.iloc[indices,:].reset_index(drop=True)
 start_date=data.Date.iloc[0]
 #id of the first match of the testing set
 test_beginning_match=data[data.Date==start_date].index[0] 
-span_matches=len(data)-test_beginning_match+1
-duration_val_matches=0
-duration_train_matches=1000
+duration_val_matches=5
 
 # The last day's matches are predicted - here we manually input the date for our test - should be 3 matches
-today=datetime(2012,11,12)
+today=datetime(2012,11,11)
 first_test_matches=data[data.Date==today].index[0]
 duration_test_matches=len(data)-first_test_matches
+
+# length of training matches
+training_length=len(data)-test_beginning_match-duration_test_matches-duration_val_matches
+
+
 ## Number of tournaments and players encoded directly in one-hot 
 nb_players=50
 nb_tournaments=5
@@ -156,9 +157,9 @@ params=numpy.array(numpy.meshgrid(learning_rate,max_depth,min_child_weight,gamma
 xgb_params=params[0]
 
 ## We predict the confidence in each outcome, "duration_test_matches" matches at each iteration
-key_matches=numpy.array([test_beginning_match+duration_test_matches*i for i in range(int(span_matches/duration_test_matches)+1)])
-confs=[]
-print(key_matches)
+print("Number of test matches: "+str(duration_test_matches))
+print("Testing set of matches: \n"+str(data[data.Date>=today]))
+conf=vibratingAssessStrategyGlobal(test_beginning_match,training_length,duration_val_matches,duration_test_matches,xgb_params,nb_players,nb_tournaments,features,data)
 """
 for start in key_matches:
     conf=vibratingAssessStrategyGlobal(start,10400,duration_val_matches,duration_test_matches,xgb_params,nb_players,nb_tournaments,features,data)
@@ -179,6 +180,7 @@ conf.to_csv("../Generated Data/confidence_data.csv",index=False)
 ## Plot of ROI according to the % of matches we bet on
 plotProfits(conf,"Test on the period Jan. 2013 -> March 2018")
 """
+print(conf)
 
 elapsed_time = time.time() - start_time
 print("Done in :"+str(elapsed_time)+" seconds.")
