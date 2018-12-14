@@ -3,6 +3,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import xgboost as xgb
 import seaborn as sns
+from datetime import *
 
 ############################### STRATEGY ASSESSMENT ############################
 ### the following functions are used to make the predictions and compute the ROI
@@ -117,8 +118,8 @@ def assessStrategyGlobal(test_beginning_match,
     confidence=p.apply(lambda x:sel_match_confidence(x))
     
     ### The final confidence dataset 
-    confidenceTest=pd.DataFrame({"match":range(beg_test,end_test+1),
-                                 "win"+model_name:right,
+    confidenceTest=pd.DataFrame({"match_index":range(beg_test,end_test+1),
+                                 "correct"+model_name:right,
                                  "confidence"+model_name:confidence,
                                  "PSW":odds.PSW.values})
     confidenceTest=confidenceTest.sort_values("confidence"+model_name,ascending=False).reset_index(drop=True)
@@ -204,3 +205,8 @@ def plotProfits(confidence,title=""):
     plt.xlabel("% of matches we bet on")
     plt.ylabel("Return on investment (%)")
     plt.suptitle(title)
+
+
+def daterange(start_date, end_date):
+    for n in range(int ((end_date - start_date).days)):
+        yield start_date + timedelta(n)

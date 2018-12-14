@@ -8,18 +8,17 @@
 from dcm import *
 from testfunctions import *
 from datetime import *
-import time
 from model import *
-
+import time
 
 # This variable is to measure how long it took to execute the code
-start_time=start_time = time.time()
+start_time = time.time()
 
 ########################################################
 ### TODO ### First we need to retrieve the latest data
 #dataScrapper()
 
-
+"""
 
 ###############################################################
 # We now clean the data and keep only the hyperparameters we need
@@ -105,7 +104,7 @@ features = pandas.concat([features_odds,
 features.to_csv("completed_dataframe.csv",index=False)
 
 
-
+"""
 ######################################
 # Model computation
 # We use only a training set and do not use any validation set
@@ -124,63 +123,78 @@ indices = data[(data.Date>=beg)&(data.Date<=end)].index
 data.Date = data.Date.apply(lambda x:datetime.strptime(x, '%Y-%m-%d'))
 data = data.iloc[indices,:].reset_index(drop=True)
 
-#first day of testing set
+#first day of training set
 start_date=data.Date.iloc[0]
-#id of the first match of the testing set
+#id of the first match of the training set
 test_beginning_match=data[data.Date==start_date].index[0] 
 duration_val_matches=5
 
-# The last day's matches are predicted - here we manually input the date for our test - should be 3 matches
-today=datetime(2012,11,11)
-first_test_matches=data[data.Date==today].index[0]
-duration_test_matches=len(data)-first_test_matches
-
-# length of training matches
-training_length=len(data)-test_beginning_match-duration_test_matches-duration_val_matches
-
-
-## Number of tournaments and players encoded directly in one-hot 
-nb_players=50
-nb_tournaments=5
-
-## XGB hyper parameters
-learning_rate=[0.295] 
-max_depth=[19]
-min_child_weight=[1]
-gamma=[0.8]
-csbt=[0.5]
-lambd=[0]
-alpha=[2]
-num_rounds=[300]
-early_stop=[5]
-params=numpy.array(numpy.meshgrid(learning_rate,max_depth,min_child_weight,gamma,csbt,lambd,alpha,num_rounds,early_stop)).T.reshape(-1,9).astype(numpy.float)
-xgb_params=params[0]
-
-## We predict the confidence in each outcome, "duration_test_matches" matches at each iteration
-print("Number of test matches: "+str(duration_test_matches))
-print("Testing set of matches: \n"+str(data[data.Date>=today]))
-conf=vibratingAssessStrategyGlobal(test_beginning_match,training_length,duration_val_matches,duration_test_matches,xgb_params,nb_players,nb_tournaments,features,data)
-"""
-for start in key_matches:
-    conf=vibratingAssessStrategyGlobal(start,10400,duration_val_matches,duration_test_matches,xgb_params,nb_players,nb_tournaments,features,data)
-    confs.append(conf)
-confs=[el for el in confs if type(el)!=int]
-conf=pd.concat(confs,0)
-## We add the date to the confidence dataset (can be useful for analysis later)
-dates=data.Date.reset_index()
-dates.columns=["match","date"]
-conf=conf.merge(dates,on="match")
-conf=conf.sort_values("confidence0",ascending=False)
-conf=conf.reset_index(drop=True)
+# Loop to iteratively set the correct date for the test
+# The daterange function stops the day before the end date
+#start_testing_date=datetime(2012,11,5)
+start_testing_date=datetime(2012,11,11)
+#end_testing_date=datetime(2012,11,12)
+end_testing_date=datetime(2012,11,13)
 
 
-## We store this dataset
-conf.to_csv("../Generated Data/confidence_data.csv",index=False)
+for test_day in daterange(start_testing_date, end_testing_date):
+    # The last day's matches are predicted - we choose all the matches that happened in the last day available in the dataframe
+    # This logic implies that our dataframe is updated daily with the matches happening the next day
 
-## Plot of ROI according to the % of matches we bet on
-plotProfits(conf,"Test on the period Jan. 2013 -> March 2018")
-"""
-print(conf)
+    first_test_matches=data[data.Date==test_day].index[0]
+    #check if it is the last day of the table
+    if data[data.Date==(test_day+timedelta(1))].empty:
+        duration_test_matches=len(data)-first_test_matches
+    else:
+        duration_test_matches=data[data.Date==(test_day+timedelta(1))].index[0]-first_test_matches
+
+    # length of training matches
+    training_length=len(data)-test_beginning_match-duration_test_matches-duration_val_matches
+
+
+    ## Number of tournaments and players encoded directly in one-hot 
+    nb_players=50
+    nb_tournaments=5
+
+    ## XGB hyper parameters
+    learning_rate=[0.295] 
+    max_depth=[19]
+    min_child_weight=[1]
+    gamma=[0.8]
+    csbt=[0.5]
+    lambd=[0]
+    alpha=[2]
+    num_rounds=[300]
+    early_stop=[5]
+    params=numpy.array(numpy.meshgrid(learning_rate,max_depth,min_child_weight,gamma,csbt,lambd,alpha,num_rounds,early_stop)).T.reshape(-1,9).astype(numpy.float)
+    xgb_params=params[0]
+
+    ## We predict the confidence in each outcome, "duration_test_matches" matches at each iteration
+    print("Matches day: "+str(test_day))
+    print("Number of test matches: "+str(duration_test_matches))
+    print("Testing set of matches: \n"+str(data[data.Date=test_day]))
+    conf=vibratingAssessStrategyGlobal(test_beginning_match,training_length,duration_val_matches,duration_test_matches,xgb_params,nb_players,nb_tournaments,features,data)
+    """
+    for start in key_matches:
+        conf=vibratingAssessStrategyGlobal(start,10400,duration_val_matches,duration_test_matches,xgb_params,nb_players,nb_tournaments,features,data)
+        confs.append(conf)
+    confs=[el for el in confs if type(el)!=int]
+    conf=pd.concat(confs,0)
+    ## We add the date to the confidence dataset (can be useful for analysis later)
+    dates=data.Date.reset_index()
+    dates.columns=["match","date"]
+    conf=conf.merge(dates,on="match")
+    conf=conf.sort_values("confidence0",ascending=False)
+    conf=conf.reset_index(drop=True)
+
+
+    ## We store this dataset
+    conf.to_csv("../Generated Data/confidence_data.csv",index=False)
+
+    ## Plot of ROI according to the % of matches we bet on
+    plotProfits(conf,"Test on the period Jan. 2013 -> March 2018")
+    """
+    print(conf)
 
 elapsed_time = time.time() - start_time
 print("Done in :"+str(elapsed_time)+" seconds.")
