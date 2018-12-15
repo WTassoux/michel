@@ -125,31 +125,33 @@ data = data.iloc[indices,:].reset_index(drop=True)
 
 #first day of training set
 start_date=data.Date.iloc[0]
-#id of the first match of the training set
-test_beginning_match=data[data.Date==start_date].index[0] 
-duration_val_matches=5
+train_beginning_match=data[data.Date==start_date].index[0]
+# this parameter should be at least 10% of the total training set in order to improve model accuracy
+# and reach faster convergence
+duration_val_matches=50
 
 # Loop to iteratively set the correct date for the test
 # The daterange function stops the day before the end date
 #start_testing_date=datetime(2012,11,5)
-start_testing_date=datetime(2012,11,11)
+start_testing_date=datetime(2012,11,5)
 #end_testing_date=datetime(2012,11,12)
 end_testing_date=datetime(2012,11,13)
 
 
+result_set=[]
 for test_day in daterange(start_testing_date, end_testing_date):
     # The last day's matches are predicted - we choose all the matches that happened in the last day available in the dataframe
     # This logic implies that our dataframe is updated daily with the matches happening the next day
 
-    first_test_matches=data[data.Date==test_day].index[0]
+    first_test_match=data[data.Date == test_day].index[0]
     #check if it is the last day of the table
     if data[data.Date==(test_day+timedelta(1))].empty:
-        duration_test_matches=len(data)-first_test_matches
+        duration_test_matches= len(data) - first_test_match
     else:
-        duration_test_matches=data[data.Date==(test_day+timedelta(1))].index[0]-first_test_matches
+        duration_test_matches= data[data.Date==(test_day+timedelta(1))].index[0] - first_test_match
 
     # length of training matches
-    training_length=len(data)-test_beginning_match-duration_test_matches-duration_val_matches
+    training_length=len(data)-train_beginning_match-duration_test_matches-duration_val_matches
 
 
     ## Number of tournaments and players encoded directly in one-hot 
@@ -172,29 +174,30 @@ for test_day in daterange(start_testing_date, end_testing_date):
     ## We predict the confidence in each outcome, "duration_test_matches" matches at each iteration
     print("Matches day: "+str(test_day))
     print("Number of test matches: "+str(duration_test_matches))
-    print("Testing set of matches: \n"+str(data[data.Date=test_day]))
-    conf=vibratingAssessStrategyGlobal(test_beginning_match,training_length,duration_val_matches,duration_test_matches,xgb_params,nb_players,nb_tournaments,features,data)
-    """
-    for start in key_matches:
-        conf=vibratingAssessStrategyGlobal(start,10400,duration_val_matches,duration_test_matches,xgb_params,nb_players,nb_tournaments,features,data)
-        confs.append(conf)
-    confs=[el for el in confs if type(el)!=int]
-    conf=pd.concat(confs,0)
-    ## We add the date to the confidence dataset (can be useful for analysis later)
-    dates=data.Date.reset_index()
-    dates.columns=["match","date"]
-    conf=conf.merge(dates,on="match")
-    conf=conf.sort_values("confidence0",ascending=False)
-    conf=conf.reset_index(drop=True)
+    print("Testing set of matches: \n"+str(data[data.Date==test_day]))
+    conf=vibratingAssessStrategyGlobal(first_test_match, training_length, duration_val_matches, duration_test_matches, xgb_params, nb_players, nb_tournaments, features, data)
+    #print(conf)
+    result_set.append(conf)
 
+print(result_set)
+result_set=[el for el in result_set if type(el)!=int]
+conf=pandas.concat(result_set,0)
+## We add the date to the confidence dataset (can be useful for analysis later)
+dates=data.Date.reset_index()
+dates.columns=["match_index","date"]
+## We add the player names to the confidence dataset (can be useful for analysis later)
+player1=data.Winner.reset_index()
+player1.columns=["match_index","Winner"]
+player2=data.Loser.reset_index()
+player2.columns=["match_index","Loser"]
 
-    ## We store this dataset
-    conf.to_csv("../Generated Data/confidence_data.csv",index=False)
-
-    ## Plot of ROI according to the % of matches we bet on
-    plotProfits(conf,"Test on the period Jan. 2013 -> March 2018")
-    """
-    print(conf)
+conf=conf.merge(dates,on="match_index")
+conf=conf.merge(player1,on="match_index")
+conf=conf.merge(player2,on="match_index")
+conf=conf.sort_values("confidence",ascending=False)
+conf=conf.reset_index(drop=True)
+print(conf)
+conf.to_csv("result_data.csv",index=False)
 
 elapsed_time = time.time() - start_time
 print("Done in :"+str(elapsed_time)+" seconds.")

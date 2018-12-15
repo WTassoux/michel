@@ -18,12 +18,15 @@ def xgbModelBinary(xtrain,ytrain,xval,yval,p,sample_weights=None):
         dtrain=xgb.DMatrix(xtrain,label=ytrain)
     else:
         dtrain=xgb.DMatrix(xtrain,label=ytrain,weight=sample_weights)
-    dval=xgb.DMatrix(xval,label=yval)
-    eval_set = [(dtrain,"train_loss"),(dval, 'eval')]
+    if xval.empty:
+        eval_set = [(dtrain, "train_loss")]
+    else:
+        dval=xgb.DMatrix(xval,label=yval)
+        eval_set = [(dtrain,"train_loss"),(dval, 'eval')]
     params={'eval_metric':"logloss","objective":"binary:logistic",'subsample':0.8,
             'min_child_weight':p[2],'alpha':p[6],'lambda':p[5],'max_depth':int(p[1]),
             'gamma':p[3],'eta':p[0],'colsample_bytree':p[4]}
-    model=xgb.train(params, dtrain, int(p[7]),evals=eval_set,early_stopping_rounds=int(p[8]))
+    model=xgb.train(params, dtrain, int(p[7]),evals=eval_set,early_stopping_rounds=int(p[8]),verbose_eval=0)
     return model
 
 
@@ -53,13 +56,20 @@ def assessStrategyGlobal(test_beginning_match,
     # Id of the first and last match of the testing,validation,training set
     beg_test=test_beginning_match
     end_test=min(test_beginning_match+duration_test_matches-1,nm-1)
-    end_val=min(beg_test-1,nm-1)
-    beg_val=beg_test-duration_val_matches
+    if duration_val_matches==0:
+        end_val=0
+        beg_val=0
+    else:
+        end_val=min(beg_test-1,nm-1)
+        beg_val=beg_test-duration_val_matches
     end_train=beg_val-1
     beg_train=beg_val-duration_train_matches
        
     train_indices=range(2*beg_train,2*end_train+2)
-    val_indices=range(2*beg_val,2*end_val+2)
+    if duration_val_matches == 0:
+        val_indices=range(0)
+    else:
+        val_indices=range(2*beg_val,2*end_val+2)
     test_indices=range(2*beg_test,2*end_test+2)
     
     if (len(test_indices)==0)|(len(train_indices)==0):
@@ -91,8 +101,8 @@ def assessStrategyGlobal(test_beginning_match,
     xtest=xtest.drop(to_drop_players+to_drop_tournaments,1)
     
     ### ML model training
-    print(xval)
-    print(yval)
+    #print(xval)
+    #print(yval)
     model=xgbModelBinary(xtrain,ytrain,xval,yval,xgb_params,sample_weights=None)
     
     # The probability given by the model to each outcome of each match :
@@ -117,65 +127,70 @@ def assessStrategyGlobal(test_beginning_match,
             return x[1]/x[3] 
     confidence=p.apply(lambda x:sel_match_confidence(x))
     
-    ### The final confidence dataset 
+    ### The final confidence dataset
     confidenceTest=pd.DataFrame({"match_index":range(beg_test,end_test+1),
                                  "correct"+model_name:right,
                                  "confidence"+model_name:confidence,
-                                 "PSW":odds.PSW.values})
+                                 "PSW":odds.PSW.values,
+                                 "Confidence_Player1_Wins"+model_name:prediction_test_winner,
+                                 "Confidence_Player2_Wins" + model_name: prediction_test_loser})
     confidenceTest=confidenceTest.sort_values("confidence"+model_name,ascending=False).reset_index(drop=True)
     
     return confidenceTest
 
-def vibratingAssessStrategyGlobal(km,dur_train,duration_val_matches,delta,xgb_params,nb_players,nb_tournaments,xtrain,data):
+def vibratingAssessStrategyGlobal(test_match, dur_train, duration_val_matches, delta, xgb_params, nb_players, nb_tournaments, xtrain, data):
     """
     The ROI is very sensistive to the training set. A few more matches in the training set can 
     change it in a non-negligible way. Therefore it is preferable to run assessStrategyGlobal several times
     with slights changes in the training set lenght, and then combine the predictions.
     This is what this function does.
-    More precisely we compute the confidence dataset of 7 models with slightly different training sets.
+    More precisely we compute the confidence dataset of 5 models with slightly different training sets.
     For each match, each model has an opinion of the winner, and a confidence is its prediction.
     For each match, the final chosen outcome is the outcome chosen by the most models (majority voting)
     And the final confidence is the average of the confidences of the models that chose this outcome.
     """
-    confTest1=assessStrategyGlobal(km,dur_train,duration_val_matches,delta,xgb_params,nb_players,nb_tournaments,xtrain,data,"1")
-    #confTest2=assessStrategyGlobal(km,dur_train-10,duration_val_matches,delta,xgb_params,nb_players,nb_tournaments,xtrain,data,"2")
-    #confTest3=assessStrategyGlobal(km,dur_train+10,duration_val_matches,delta,xgb_params,nb_players,nb_tournaments,xtrain,data,"3")
-    #confTest4=assessStrategyGlobal(km,dur_train-30,duration_val_matches,delta,xgb_params,nb_players,nb_tournaments,xtrain,data,"4")
-    #confTest5=assessStrategyGlobal(km,dur_train+30,duration_val_matches,delta,xgb_params,nb_players,nb_tournaments,xtrain,data,"5")
-    #confTest6=assessStrategyGlobal(km,dur_train-45,duration_val_matches,delta,xgb_params,nb_players,nb_tournaments,xtrain,data,"6")
-    #confTest7=assessStrategyGlobal(km,dur_train+45,duration_val_matches,delta,xgb_params,nb_players,nb_tournaments,xtrain,data,"7")
-    """
+
+    # We define a step variable which will change the training/validation set lengths
+    step = 10
+    confTest1=assessStrategyGlobal(test_match, dur_train, duration_val_matches, delta, xgb_params, nb_players, nb_tournaments, xtrain, data, "1")
+    confTest2=assessStrategyGlobal(test_match, dur_train - step, duration_val_matches + step, delta, xgb_params, nb_players, nb_tournaments, xtrain, data, "2")
+    confTest3=assessStrategyGlobal(test_match, dur_train + step, duration_val_matches - step, delta, xgb_params, nb_players, nb_tournaments, xtrain, data, "3")
+    confTest4=assessStrategyGlobal(test_match, dur_train - 3 * step, duration_val_matches + 3 * step, delta, xgb_params, nb_players, nb_tournaments, xtrain, data, "4")
+    confTest5=assessStrategyGlobal(test_match, dur_train + 3 * step, duration_val_matches - 3 * step, delta, xgb_params, nb_players, nb_tournaments, xtrain, data, "5")
+
     if (type(confTest1)!=int)&(type(confTest2)!=int)&(type(confTest3)!=int)&(type(confTest4)!=int)&(type(confTest5)!=int):
-        c=confTest1.merge(confTest2,on=["match","PSW"])
-        c=c.merge(confTest3,on=["match","PSW"])
-        c=c.merge(confTest4,on=["match","PSW"])
-        c=c.merge(confTest5,on=["match","PSW"])
-        c=c.merge(confTest6,on=["match","PSW"])
-        c=c.merge(confTest7,on=["match","PSW"])
-        c=pd.Series(list(zip(c.win1,c.win2,c.win3,c.win4,c.win5,
-                             c.win6,c.win7,
+        c=confTest1.merge(confTest2,on=["match_index","PSW"])
+        c=c.merge(confTest3,on=["match_index","PSW"])
+        c=c.merge(confTest4,on=["match_index","PSW"])
+        c=c.merge(confTest5,on=["match_index","PSW"])
+        c=pd.Series(list(zip(c.correct1,c.correct2,c.correct3,c.correct4,c.correct5,
                              c.confidence1,c.confidence2,c.confidence3,
-                             c.confidence4,c.confidence5,
-                             c.confidence6,c.confidence7)))
+                             c.confidence4,c.confidence5,c.Confidence_Player1_Wins1,
+                             c.Confidence_Player1_Wins2,c.Confidence_Player1_Wins3,
+                             c.Confidence_Player1_Wins4,c.Confidence_Player1_Wins5,c.Confidence_Player2_Wins1,
+                             c.Confidence_Player2_Wins2,c.Confidence_Player2_Wins3,
+                             c.Confidence_Player2_Wins4,c.Confidence_Player2_Wins5)))
         c=pd.DataFrame.from_records(list(c.apply(mer)))
-        conf=pd.concat([confTest1[["match","PSW"]],c],1)
-        conf.columns=["match","PSW","win0","confidence0"]
+        conf=pd.concat([confTest1[["match_index","PSW"]],c],1)
+        conf.columns=["match_index","Pinnacle_Odds","correct_prediction","confidence","Confidence_Player1_Wins","Confidence_Player2_Wins"]
     else:
         conf=0
-    """
-    return confTest1
+
+    return conf
 
 def mer(t):
     # If more than half the models choose the right outcome for the match, we can say
     # in real situation we would have been right. Otherwise wrong.
     # And the confidence in the chosen outcome is the mean of the confidences of the models
     # we chose this outcome.
-    w=np.array([t[0],t[1],t[2],t[3],t[4],t[5],t[6]]).astype(bool)
-    conf=np.array([t[7],t[8],t[9],t[10],t[11],t[12],t[13]])
-    if w.sum()>=4:
-        return 1,conf[w].mean()
+    w=np.array([t[0],t[1],t[2],t[3],t[4]]).astype(bool)
+    conf=np.array([t[5],t[6],t[7],t[8],t[9]])
+    Conf_P1_Wins=np.array([t[10],t[11],t[12],t[13],t[14]])
+    Conf_P2_Wins=np.array([t[15],t[16],t[17],t[18],t[19]])
+    if w.sum()>=3:
+        return 1,conf[w].mean(),Conf_P1_Wins[w].mean(),Conf_P2_Wins[w].mean()
     else:
-        return 0,conf[~w].mean()
+        return 0,conf[~w].mean(),Conf_P1_Wins[~w].mean(),Conf_P2_Wins[~w].mean()
 
 ############################### PROFITS COMPUTING AND VISUALIZATION ############
 
