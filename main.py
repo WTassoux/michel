@@ -104,7 +104,7 @@ features = pandas.concat([features_odds,
 features.to_csv("completed_dataframe.csv",index=False)
 
 
-"""
+
 ######################################
 # Model computation
 # We use only a training set and do not use any validation set
@@ -187,9 +187,9 @@ dates=data.Date.reset_index()
 dates.columns=["match_index","date"]
 ## We add the player names to the confidence dataset (can be useful for analysis later)
 player1=data.Winner.reset_index()
-player1.columns=["match_index","Winner"]
+player1.columns=["match_index","Player1"]
 player2=data.Loser.reset_index()
-player2.columns=["match_index","Loser"]
+player2.columns=["match_index","Player2"]
 
 conf=conf.merge(dates,on="match_index")
 conf=conf.merge(player1,on="match_index")
@@ -199,6 +199,10 @@ conf=conf.reset_index(drop=True)
 print(conf)
 conf.to_csv("result_data.csv",index=False)
 
+"""
+conf=pandas.read_csv("result_data.csv")
+ROI = profitComputation(1,conf)
+print("ROI for the dataset: "+str(ROI)+"%")
 elapsed_time = time.time() - start_time
 print("Done in :"+str(elapsed_time)+" seconds.")
 

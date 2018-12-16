@@ -1,8 +1,6 @@
 import pandas as pd
 import numpy as np
-import matplotlib.pyplot as plt
 import xgboost as xgb
-import seaborn as sns
 from datetime import *
 
 ############################### STRATEGY ASSESSMENT ############################
@@ -192,34 +190,23 @@ def mer(t):
     else:
         return 0,conf[~w].mean(),Conf_P1_Wins[~w].mean(),Conf_P2_Wins[~w].mean()
 
-############################### PROFITS COMPUTING AND VISUALIZATION ############
+############################### PROFITS COMPUTING ############
 
-def profitComputation(percentage,confidence,model_name="0"):
+def profitComputation(conf_threshold,confidence):
     """
-    Input : percentage of matches we want to bet on,confidence dataset
+    Input : we bet on the matches with confidence above a certain threshold
     Output : ROI
     """
-    tot_number_matches=len(confidence)
-    number_matches_we_bet_on=int(tot_number_matches*(percentage/100))
-    matches_selection=confidence.head(number_matches_we_bet_on)
-    profit=100*(matches_selection.PSW[matches_selection["win"+model_name]==1].sum()-number_matches_we_bet_on)/number_matches_we_bet_on
-    return profit
+    final_amount=0
+    total_bet=0
+    for index, bet in confidence.iterrows():
+        if bet["confidence"]>=conf_threshold:
+            total_bet+=1
+            final_amount+=bet["Pinnacle_Odds"]
+    # we compute the ROI which is only the diff between the number of bets and the sums of odds
+    # (we assume here a bet of 1 each time)
+    return (final_amount-total_bet)/total_bet*100
 
-def plotProfits(confidence,title=""):
-    """
-    Given a confidence dataset, plots the ROI according to the percentage of matches
-    we bet on. 
-    """
-    profits=[]
-    ticks=range(5,101)
-    for i in ticks:
-        p=profitComputation(i,confidence)
-        profits.append(p)
-    plt.plot(ticks,profits)
-    plt.xticks(range(0,101,5))
-    plt.xlabel("% of matches we bet on")
-    plt.ylabel("Return on investment (%)")
-    plt.suptitle(title)
 
 
 def daterange(start_date, end_date):
