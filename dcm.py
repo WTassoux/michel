@@ -35,7 +35,7 @@ from sklearn.preprocessing import OneHotEncoder
 # We import all gathered data
 def dataCleaner():
     #filenames=list(glob.glob("Data/[0-9]^4.xls*"))
-    filenames=list(glob.glob("TestData/20*.xls*"))
+    filenames=list(glob.glob("Data/20*.xls*"))
     data=[pandas.read_excel(filename) for filename in filenames]
 
     # Some odds are missing and we need to clean the data
@@ -68,6 +68,7 @@ def dataCleaner():
     
     # We convert the Wsets and Lsets data to float as well
     dataset["Wsets"]=dataset["Wsets"].astype(float)
+    dataset["Lsets"]=dataset["Lsets"].replace("`1",1)
     dataset["Lsets"]=dataset["Lsets"].astype(float)
     dataset=dataset.reset_index(drop=True)
 
@@ -234,7 +235,7 @@ def features_past_generation(features_creation_function,
         match_features_outcome_2=features_creation_function(2,match,past_matches)
         matches_outcomes.append(match_features_outcome_1)
         matches_outcomes.append(match_features_outcome_2)
-        if i%100==0:
+        if i%500==0:
             print(str(i)+"/"+str(len(indices))+" matches treated.")
     train=pandas.DataFrame(matches_outcomes)
     train.columns=[feature_names_prefix+str(i) for i in range(len(train.columns))]

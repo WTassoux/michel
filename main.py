@@ -18,8 +18,8 @@ start_time = time.time()
 ### TODO ### First we need to retrieve the latest data
 #dataScrapper()
 
-"""
 
+"""
 ###############################################################
 # We now clean the data and keep only the hyperparameters we need
 df=dataCleaner()
@@ -45,7 +45,7 @@ print("Accuracy of ELO ranking for match outcome prediction: "+str(testRankingAc
 # Generation of additional hyper parameters
 df=pandas.read_csv('dataframe_output.csv')
 
-beg = datetime(2008,1,1) 
+#beg = datetime(2008,1,1) 
 beg = df.Date.iloc[0]
 end = df.Date.iloc[-1]
 indices = df[(df.Date>beg)&(df.Date<=end)].index
@@ -103,7 +103,7 @@ features = pandas.concat([features_odds,
 
 features.to_csv("completed_dataframe.csv",index=False)
 
-
+"""
 
 ######################################
 # Model computation
@@ -132,26 +132,36 @@ duration_val_matches=50
 
 # Loop to iteratively set the correct date for the test
 # The daterange function stops the day before the end date
-#start_testing_date=datetime(2012,11,5)
-start_testing_date=datetime(2012,11,5)
+#start_testing_date=datetime(2017,12,31)
+start_testing_date=datetime(2017,12,31)
 #end_testing_date=datetime(2012,11,12)
-end_testing_date=datetime(2012,11,13)
+end_testing_date=datetime(2018,11,19)
 
 
 result_set=[]
 for test_day in daterange(start_testing_date, end_testing_date):
     # The last day's matches are predicted - we choose all the matches that happened in the last day available in the dataframe
     # This logic implies that our dataframe is updated daily with the matches happening the next day
-
-    first_test_match=data[data.Date == test_day].index[0]
-    #check if it is the last day of the table
-    if data[data.Date==(test_day+timedelta(1))].empty:
-        duration_test_matches= len(data) - first_test_match
+    
+    # this check is in case there is a day in the dataset where no matches were played. if so, we skip this day
+    if data[data.Date==(test_day)].empty:
+        continue
     else:
-        duration_test_matches= data[data.Date==(test_day+timedelta(1))].index[0] - first_test_match
+        first_test_match=data[data.Date == test_day].index[0]
+    #check if it is the last day of the table
+    if (data[data.Date==(test_day+timedelta(1))].empty and test_day+timedelta(1)==end_testing_date):
+        last_test_match=len(data)
+        duration_test_matches= last_test_match - first_test_match
+    else:
+        # case where the next day in the dataset has no played matches . if so, we try to get the following day
+        i = 1
+        while data[data.Date==(test_day+timedelta(i))].empty:
+            i += 1
+        last_test_match=data[data.Date == (test_day+timedelta(i))].index[0]
+        duration_test_matches= last_test_match - first_test_match
 
     # length of training matches
-    training_length=len(data)-train_beginning_match-duration_test_matches-duration_val_matches
+    training_length=last_test_match-train_beginning_match-duration_test_matches-duration_val_matches
 
 
     ## Number of tournaments and players encoded directly in one-hot 
@@ -196,10 +206,10 @@ conf=conf.merge(player1,on="match_index")
 conf=conf.merge(player2,on="match_index")
 conf=conf.sort_values("confidence",ascending=False)
 conf=conf.reset_index(drop=True)
-print(conf)
+#print(conf)
 conf.to_csv("result_data.csv",index=False)
 
-"""
+
 conf=pandas.read_csv("result_data.csv")
 ROI = profitComputation(1,conf)
 print("ROI for the dataset: "+str(ROI)+"%")
