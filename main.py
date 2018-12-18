@@ -134,7 +134,7 @@ duration_val_matches=50
 # The daterange function stops the day before the end date
 #start_testing_date=datetime(2017,12,31)
 start_testing_date=datetime(2017,12,31)
-#end_testing_date=datetime(2012,11,12)
+#end_testing_date=datetime(2018,1,2)
 end_testing_date=datetime(2018,11,19)
 
 
