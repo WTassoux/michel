@@ -3,6 +3,7 @@ import numpy as np
 import xgboost as xgb
 from datetime import *
 
+
 ############################### STRATEGY ASSESSMENT ############################
 ### the following functions are used to make the predictions and compute the ROI
 
@@ -26,6 +27,29 @@ def xgbModelBinary(xtrain,ytrain,xval,yval,p,sample_weights=None):
             'gamma':p[3],'eta':p[0],'colsample_bytree':p[4]}
     model=xgb.train(params, dtrain, int(p[7]),evals=eval_set,early_stopping_rounds=int(p[8]),verbose_eval=0)
     return model
+
+def xgbModelBinaryCV(xtrain,ytrain,xval,yval,p,sample_weights=None):
+    """
+    XGB model CV training. 
+    Early stopping is performed using xval and yval (validation set).
+    Outputs the trained model, and the prediction on the validation set
+    """
+    xtrain=pd.concat([xtrain,xval])
+    ytrain=pd.concat([ytrain,yval])
+    if sample_weights==None:
+        dtrain=xgb.DMatrix(xtrain,label=ytrain)
+    else:
+        dtrain=xgb.DMatrix(xtrain,label=ytrain,weight=sample_weights)
+    if xval.empty:
+        eval_set = [(dtrain, "train_loss")]
+    else:
+        dval=xgb.DMatrix(xval,label=yval)
+        eval_set = [(dtrain,"train_loss"),(dval, 'eval')]
+    params={'eval_metric':"logloss","objective":"binary:logistic",'subsample':0.8,
+            'min_child_weight':p[2],'alpha':p[6],'lambda':p[5],'max_depth':int(p[1]),
+            'gamma':p[3],'eta':p[0],'colsample_bytree':p[4]}
+    cv_outcome=xgb.cv(params, dtrain, int(p[7]),seed=5,nfold=10,early_stopping_rounds=int(p[8]),metrics={'mae'})
+    return cv_outcome
 
 
 def assessStrategyGlobal(test_beginning_match,
@@ -103,6 +127,11 @@ def assessStrategyGlobal(test_beginning_match,
     #print(yval)
     model=xgbModelBinary(xtrain,ytrain,xval,yval,xgb_params,sample_weights=None)
     
+    ### ML model assessment
+    cv_output=xgbModelBinaryCV(xtrain,ytrain,xval,yval,xgb_params,sample_weights=None)
+    print("Mean Absolute Error: "+str(cv_output['test-mae-mean'].min()))
+    cv_output.to_csv("cv_data.csv",index=False)
+
     # The probability given by the model to each outcome of each match :
     pred_test= model.predict(xgb.DMatrix(xtest,label=None)) 
     # For each match, the winning probability the model gave to the players that won (should be high...) :

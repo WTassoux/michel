@@ -133,7 +133,7 @@ duration_val_matches=50
 # Loop to iteratively set the correct date for the test
 # The daterange function stops the day before the end date
 #start_testing_date=datetime(2017,12,31)
-start_testing_date=datetime(2017,12,31)
+start_testing_date=datetime(2018,11,18)
 #end_testing_date=datetime(2018,1,2)
 end_testing_date=datetime(2018,11,19)
 
@@ -169,13 +169,13 @@ for test_day in daterange(start_testing_date, end_testing_date):
     nb_tournaments=5
 
     ## XGB hyper parameters
-    learning_rate=[0.295] 
-    max_depth=[19]
+    learning_rate=[0.305] 
+    max_depth=[20]
     min_child_weight=[1]
-    gamma=[0.8]
-    csbt=[0.5]
+    gamma=[0]
+    csbt=[1]
     lambd=[0]
-    alpha=[2]
+    alpha=[0]
     num_rounds=[300]
     early_stop=[5]
     params=numpy.array(numpy.meshgrid(learning_rate,max_depth,min_child_weight,gamma,csbt,lambd,alpha,num_rounds,early_stop)).T.reshape(-1,9).astype(numpy.float)
@@ -211,8 +211,8 @@ conf.to_csv("result_data.csv",index=False)
 
 
 conf=pandas.read_csv("result_data.csv")
-ROI = profitComputation(1,conf)
-print("ROI for the dataset: "+str(ROI)+"%")
+#ROI = profitComputation(1,conf)
+#print("ROI for the dataset: "+str(ROI)+"%")
 elapsed_time = time.time() - start_time
 print("Done in :"+str(elapsed_time)+" seconds.")
 
