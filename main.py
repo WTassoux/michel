@@ -128,14 +128,14 @@ start_date=data.Date.iloc[0]
 train_beginning_match=data[data.Date==start_date].index[0]
 # this parameter should be at least 10% of the total training set in order to improve model accuracy
 # and reach faster convergence
-duration_val_matches=50
+duration_val_matches=100
 
 # Loop to iteratively set the correct date for the test
 # The daterange function stops the day before the end date
 #start_testing_date=datetime(2017,12,31)
-start_testing_date=datetime(2018,11,18)
+start_testing_date=datetime(2018,12,31)
 #end_testing_date=datetime(2018,1,2)
-end_testing_date=datetime(2018,11,19)
+end_testing_date=datetime(2019,1,1)
 
 
 result_set=[]
@@ -210,7 +210,7 @@ conf=conf.reset_index(drop=True)
 conf.to_csv("result_data.csv",index=False)
 
 
-conf=pandas.read_csv("result_data.csv")
+#conf=pandas.read_csv("result_data.csv")
 #ROI = profitComputation(1,conf)
 #print("ROI for the dataset: "+str(ROI)+"%")
 elapsed_time = time.time() - start_time

@@ -128,9 +128,9 @@ def assessStrategyGlobal(test_beginning_match,
     model=xgbModelBinary(xtrain,ytrain,xval,yval,xgb_params,sample_weights=None)
     
     ### ML model assessment
-    cv_output=xgbModelBinaryCV(xtrain,ytrain,xval,yval,xgb_params,sample_weights=None)
-    print("Mean Absolute Error: "+str(cv_output['test-mae-mean'].min()))
-    cv_output.to_csv("cv_data.csv",index=False)
+    #cv_output=xgbModelBinaryCV(xtrain,ytrain,xval,yval,xgb_params,sample_weights=None)
+    #print("Mean Absolute Error: "+str(cv_output['test-mae-mean'].min()))
+    #cv_output.to_csv("cv_data.csv",index=False)
 
     # The probability given by the model to each outcome of each match :
     pred_test= model.predict(xgb.DMatrix(xtest,label=None)) 
@@ -180,10 +180,11 @@ def vibratingAssessStrategyGlobal(test_match, dur_train, duration_val_matches, d
     # We define a step variable which will change the training/validation set lengths
     step = 10
     confTest1=assessStrategyGlobal(test_match, dur_train, duration_val_matches, delta, xgb_params, nb_players, nb_tournaments, xtrain, data, "1")
-    #confTest2=assessStrategyGlobal(test_match, dur_train - step, duration_val_matches + step, delta, xgb_params, nb_players, nb_tournaments, xtrain, data, "2")
-    #confTest3=assessStrategyGlobal(test_match, dur_train + step, duration_val_matches - step, delta, xgb_params, nb_players, nb_tournaments, xtrain, data, "3")
-    #confTest4=assessStrategyGlobal(test_match, dur_train - 3 * step, duration_val_matches + 3 * step, delta, xgb_params, nb_players, nb_tournaments, xtrain, data, "4")
-    #confTest5=assessStrategyGlobal(test_match, dur_train + 3 * step, duration_val_matches - 3 * step, delta, xgb_params, nb_players, nb_tournaments, xtrain, data, "5")
+    confTest2=assessStrategyGlobal(test_match, dur_train - step, duration_val_matches + step, delta, xgb_params, nb_players, nb_tournaments, xtrain, data, "2")
+    confTest3=assessStrategyGlobal(test_match, dur_train + step, duration_val_matches - step, delta, xgb_params, nb_players, nb_tournaments, xtrain, data, "3")
+    confTest4=assessStrategyGlobal(test_match, dur_train - 3 * step, duration_val_matches + 3 * step, delta, xgb_params, nb_players, nb_tournaments, xtrain, data, "4")
+    confTest5=assessStrategyGlobal(test_match, dur_train + 3 * step, duration_val_matches - 3 * step, delta, xgb_params, nb_players, nb_tournaments, xtrain, data, "5")
+    """
     confTest5=confTest1.copy()
     confTest5.columns = ["Confidence_Player1_Wins5", "Confidence_Player2_Wins5", "PSW", "confidence5", "correct5", "match_index"]
     confTest2=confTest1.copy()
@@ -192,6 +193,7 @@ def vibratingAssessStrategyGlobal(test_match, dur_train, duration_val_matches, d
     confTest3.columns = ["Confidence_Player1_Wins3", "Confidence_Player2_Wins3", "PSW", "confidence3", "correct3", "match_index"]
     confTest4=confTest1.copy()
     confTest4.columns = ["Confidence_Player1_Wins4", "Confidence_Player2_Wins4", "PSW", "confidence4", "correct4", "match_index"]
+    """
     if (type(confTest1)!=int)&(type(confTest2)!=int)&(type(confTest3)!=int)&(type(confTest4)!=int)&(type(confTest5)!=int):
         c=confTest1.merge(confTest2,on=["match_index","PSW"])
         c=c.merge(confTest3,on=["match_index","PSW"])
