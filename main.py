@@ -19,7 +19,7 @@ start_time = time.time()
 #dataScrapper()
 
 
-"""
+
 ###############################################################
 # We now clean the data and keep only the hyperparameters we need
 df=dataCleaner()
@@ -103,7 +103,6 @@ features = pandas.concat([features_odds,
 
 features.to_csv("completed_dataframe.csv",index=False)
 
-"""
 
 ######################################
 # Model computation
