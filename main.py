@@ -18,7 +18,7 @@ start_time = time.time()
 ### TODO ### First we need to retrieve the latest data
 #dataScrapper()
 
-
+"""
 
 ###############################################################
 # We now clean the data and keep only the hyperparameters we need
@@ -102,7 +102,7 @@ features = pandas.concat([features_odds,
                   features_recent],1)
 
 features.to_csv("completed_dataframe.csv",index=False)
-
+"""
 
 ######################################
 # Model computation
@@ -127,7 +127,7 @@ start_date=data.Date.iloc[0]
 train_beginning_match=data[data.Date==start_date].index[0]
 # this parameter should be at least 10% of the total training set in order to improve model accuracy
 # and reach faster convergence
-duration_val_matches=100
+duration_val_matches=50
 
 # Loop to iteratively set the correct date for the test
 # The daterange function stops the day before the end date
@@ -167,7 +167,20 @@ for test_day in daterange(start_testing_date, end_testing_date):
     nb_players=50
     nb_tournaments=5
 
-    ## XGB hyper parameters
+ ## XGB hyper parameters - original
+    #learning_rate=[0.295] 
+    #max_depth=[19]
+    #min_child_weight=[1]
+    #gamma=[0.8]
+    #csbt=[0.5]
+    #lambd=[0]
+    #alpha=[2]
+    #num_rounds=[300]
+    #early_stop=[5]
+    #params=np.array(np.meshgrid(learning_rate,max_depth,min_child_weight,gamma,csbt,lambd,alpha,num_rounds,early_stop)).T.reshape(-1,9).astype(np.float)
+    #xgb_params=params[0]
+
+    ## XGB hyper parameters - modified
     learning_rate=[0.305] 
     max_depth=[20]
     min_child_weight=[1]
