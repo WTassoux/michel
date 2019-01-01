@@ -15,6 +15,7 @@ from scraping_module import *
 # This variable is to measure how long it took to execute the code
 start_time = time.time()
 
+
 ########################################################
 ### TODO ### First we need to retrieve the latest data
 dataScrapper(2019,2019)

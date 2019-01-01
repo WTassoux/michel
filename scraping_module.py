@@ -9,12 +9,21 @@ import numbers
 from concurrent.futures import ProcessPoolExecutor
 import concurrent.futures
 
+# Python 2 backwards compatibility
+try:
+    # Python 2
+    xrange
+except NameError:
+    # Python 3, xrange is now named range
+    xrange = range
+
+
 ### This web scraper will retrieve future matches and live results from the ATP World Tour website
 
 ## We define a few functions first
 def array2csv(array, filename):
     csv_array = array
-    csv_out = open(filename + ".csv", 'wb')
+    csv_out = open(filename + ".csv", 'w')
     mywriter = csv.writer(csv_out)
     for row in csv_array:
         mywriter.writerow(row)
@@ -93,14 +102,14 @@ def scrape_year(year):
             problem_tourneys.append([year, tourney_order, tourney_name])
         
         # Store data        
-        tourney_data.append([tourney_year_id, tourney_order, tourney_slug, tourney_url_suffix])
+        tourney_data.append([tourney_order, tourney_slug])
 
     # Print missing info
     if len(problem_tourneys) > 0:
-        print ''
-        print 'Tournaments with missing match info...'
-        print 'Year    Order    Tournament'
-        print '----    -----    ----------'
+        print('')
+        print('Tournaments with missing match info...')
+        print('Year    Order    Tournament')
+        print('----    -----    ----------')
 
         for tourney in problem_tourneys:
             year = tourney[0]
@@ -112,7 +121,7 @@ def scrape_year(year):
             for j in xrange(0, spacing_count):
                 spacing += ' '
 
-            print year + '    ' + str(tourney_order) + spacing +  '    ' + tourney_name    
+            print(str(year) + '    ' + str(tourney_order) + str(spacing) +  '    ' + str(tourney_name))    
 
     # Output data
     output = [tourney_data, tourney_urls]
@@ -130,209 +139,186 @@ def scrape_tourney(tourney_url_suffix):
     # Tourney tree
     tourney_tree = html_parse_tree(tourney_url)     
 
-    tourney_round_name_xpath = "//table[contains(@class, 'day-table')]/thead/tr/th/text()"
-    tourney_round_name_parsed = xpath_parse(tourney_tree, tourney_round_name_xpath)
-    tourney_round_count = len(tourney_round_name_parsed)
-
     match_urls = []
     match_data = []
-
-    # We figure out the dates of the tournament and try to retrieve the matches for each match
+    #match_data.append(["Date", "Round", "Winner", "Loser", "Score", "Winner Sets Won", "Loser Sets Won", "Winner Total Games", "Loser Total Games", "Winner Tie-Breaks", "Loser Tie-Breaks"])
+    # We figure out the dates of the tournament and try to retrieve the matches for each day
     tourney_dates_xpath = "//ul[@data-value='matchdate']/li[@data-value]/text()"
-    round_match_count_parsed = xpath_parse(tourney_tree, tourney_dates_xpath)
-    #round_match_count = len(round_match_count_parsed)
-    print round_match_count_parsed
-    # Iterate through each round    
-    for i in xrange(0, tourney_round_count):
-        round_order = i + 1
+    day_count_parsed = xpath_parse(tourney_tree, tourney_dates_xpath)
+    day_match_count = len(day_count_parsed)
+    #print(day_match_count)
+    # Iterate through each day of the tournament
+    for z in xrange(0, day_match_count):
+        tourney_day_tree = html_parse_tree(tourney_url+"?matchdate="+day_count_parsed[z].replace(".","/"))
+        #print(tourney_url+"?matchdate="+day_count_parsed[k].replace(".","/"))
+        tourney_round_name_xpath = "//table[contains(@class, 'day-table')]/thead/tr/th/text()"
+        tourney_round_name_parsed = xpath_parse(tourney_day_tree, tourney_round_name_xpath)
+        tourney_round_count = len(tourney_round_name_parsed)
+        #print(tourney_round_name_parsed)
+        # Iterate through each round (usually there will only be one round per day   
+        for i in xrange(0, tourney_round_count):
+            round_order = i + 1
 
-        tourney_round_name = tourney_round_name_parsed[i]
+            tourney_round_name = tourney_round_name_parsed[i]
 
-        #round_match_count_xpath = "//table[contains(@class, 'day-table')]/tbody[" + str(i + 1) + "]/tr/td[contains(@class, 'day-table-score')]/a/@href"
-        round_match_count_xpath = "//table[contains(@class, 'day-table')]/tbody[" + str(i + 1) + "]/tr/td[contains(@class, 'day-table-name')][1]/a/text()"
-        round_match_count_parsed = xpath_parse(tourney_tree, round_match_count_xpath)
-        round_match_count = len(round_match_count_parsed)
+            round_match_count_xpath = "//table[contains(@class, 'day-table')]/tbody[" + str(i + 1) + "]/tr/td[contains(@class, 'day-table-name')][1]/a/text()"
+            round_match_count_parsed = xpath_parse(tourney_day_tree, round_match_count_xpath)
+            round_match_count = len(round_match_count_parsed)
+            #print(round_match_count_parsed)
+            # Iterate through each match
+            for j in xrange(0, round_match_count):
+                match_order = j + 1
 
-        # Iterate through each match
-        for j in xrange(0, round_match_count):
-            match_order = j + 1
+                # Winner
+                winner_name_xpath = "//table[contains(@class, 'day-table')]/tbody[" + str(i + 1) + "]/tr[" + str(j + 1) + "]/td[contains(@class, 'day-table-name')][1]/a/text()"
+                winner_name_parsed = xpath_parse(tourney_day_tree, winner_name_xpath)
 
-            # Winner
-            winner_name_xpath = "//table[contains(@class, 'day-table')]/tbody[" + str(i + 1) + "]/tr[" + str(j + 1) + "]/td[contains(@class, 'day-table-name')][1]/a/text()"
-            winner_name_parsed = xpath_parse(tourney_tree, winner_name_xpath)
+                winner_url_xpath = "//table[contains(@class, 'day-table')]/tbody[" + str(i + 1) + "]/tr[" + str(j + 1) + "]/td[contains(@class, 'day-table-name')][1]/a/@href"
+                winner_url_parsed = xpath_parse(tourney_day_tree, winner_url_xpath)
 
-            winner_url_xpath = "//table[contains(@class, 'day-table')]/tbody[" + str(i + 1) + "]/tr[" + str(j + 1) + "]/td[contains(@class, 'day-table-name')][1]/a/@href"
-            winner_url_parsed = xpath_parse(tourney_tree, winner_url_xpath)
+                winner_name = winner_name_parsed[0].encode('utf-8')
+                #winner_url = winner_url_parsed[0]
+                #winner_url_split = winner_url.split('/')
+                #winner_slug = winner_url_split[3]
+                #winner_player_id = winner_url_split[4]            
 
-            winner_name = winner_name_parsed[0].encode('utf-8')
-            winner_url = winner_url_parsed[0]
-            winner_url_split = winner_url.split('/')
-            winner_slug = winner_url_split[3]
-            winner_player_id = winner_url_split[4]            
+                # Loser
+                loser_name_xpath = "//table[contains(@class, 'day-table')]/tbody[" + str(i + 1) + "]/tr[" + str(j + 1) + "]/td[contains(@class, 'day-table-name')][2]/a/text()"
+                loser_name_parsed = xpath_parse(tourney_day_tree, loser_name_xpath)
 
-            # Loser
-            loser_name_xpath = "//table[contains(@class, 'day-table')]/tbody[" + str(i + 1) + "]/tr[" + str(j + 1) + "]/td[contains(@class, 'day-table-name')][2]/a/text()"
-            loser_name_parsed = xpath_parse(tourney_tree, loser_name_xpath)
+                loser_url_xpath = "//table[contains(@class, 'day-table')]/tbody[" + str(i +1) + "]/tr[" + str(j + 1) + "]/td[contains(@class, 'day-table-name')][2]/a/@href"
+                loser_url_parsed = xpath_parse(tourney_day_tree, loser_url_xpath)
 
-            loser_url_xpath = "//table[contains(@class, 'day-table')]/tbody[" + str(i +1) + "]/tr[" + str(j + 1) + "]/td[contains(@class, 'day-table-name')][2]/a/@href"
-            loser_url_parsed = xpath_parse(tourney_tree, loser_url_xpath)
+                try:
+                    loser_name = loser_name_parsed[0].encode('utf-8')
+                    #loser_url = loser_url_parsed[0]
+                    #loser_url_split = loser_url.split('/')
+                    #loser_slug = loser_url_split[3]
+                    #loser_player_id = loser_url_split[4]
+                # this exeption needs to be handled somehow - not sure when this happens
+                except Exception:
+                    loser_name = ''
+                    #loser_url = ''
+                    #loser_slug = ''
+                    #loser_player_id = ''
 
-            try:
-                loser_name = loser_name_parsed[0].encode('utf-8')
-                loser_url = loser_url_parsed[0]
-                loser_url
-                loser_url_split = loser_url.split('/')
-                loser_slug = loser_url_split[3]
-                loser_player_id = loser_url_split[4]
-            except Exception:
-                loser_name = ''
-                loser_url = ''
-                loser_slug = ''
-                loser_player_id = ''
+                # Match score
+                match_score_text_xpath = "//table[contains(@class, 'day-table')]/tbody[" + str(i + 1) + "]/tr[" + str(j + 1) + "]/td[contains(@class, 'day-table-score')]/a/node()"
+                match_score_text_parsed = xpath_parse(tourney_day_tree, match_score_text_xpath)
 
-            # Seeds
-            winner_seed_xpath = "//table[contains(@class, 'day-table')]/tbody[" + str(i + 1) + "]/tr[" + str(j + 1) + "]/td[contains(@class, 'day-table-seed')][1]/span/text()"
-            winner_seed_parsed = xpath_parse(tourney_tree, winner_seed_xpath)
-            winner_seed_cleaned = regex_strip_array(winner_seed_parsed)
-            if len(winner_seed_cleaned) > 0:
-                winner_seed = winner_seed_cleaned[0]
-            else:
-                winner_seed = ''
-            winner_seed = winner_seed.replace('(', '')
-            winner_seed = winner_seed.replace(')', '')
-            
-            loser_seed_xpath = "//table[contains(@class, 'day-table')]/tbody[" + str(i + 1) + "]/tr[" + str(j + 1) + "]/td[contains(@class, 'day-table-seed')][2]/span/text()"        
-            loser_seed_parsed = xpath_parse(tourney_tree, loser_seed_xpath)
-            loser_seed_cleaned = regex_strip_array(loser_seed_parsed)
-            if len(loser_seed_cleaned) > 0:
-                loser_seed = loser_seed_cleaned[0]
-            else:
-                loser_seed = ''
-            loser_seed = loser_seed.replace('(', '')
-            loser_seed = loser_seed.replace(')', '')        
+                if len(match_score_text_parsed) > 0:
 
-            # Match score
-            match_score_text_xpath = "//table[contains(@class, 'day-table')]/tbody[" + str(i + 1) + "]/tr[" + str(j + 1) + "]/td[contains(@class, 'day-table-score')]/a/node()"
-            match_score_text_parsed = xpath_parse(tourney_tree, match_score_text_xpath)
+                    # Tiebreaks
+                    tiebreaks_xpath = "//table[contains(@class, 'day-table')]/tbody[" + str(i + 1) + "]/tr[" + str(j + 1) + "]/td[contains(@class, 'day-table-score')]/a/sup/text()"
+                    tiebreaks_parsed = xpath_parse(tourney_day_tree, tiebreaks_xpath)
 
-            if len(match_score_text_parsed) > 0:
+                    # Fixing tiebreak problem
+                    tiebreak_counter = 0
+                    match_score_cleaned = []
+                    tiebreak_score_cleaned = []
+                    for element in match_score_text_parsed:
+                        if len(element) > 0:
+                            match_score_cleaned.append(regex_strip_string(element))
+                            tiebreak_score_cleaned.append(regex_strip_string(element))
+                        else:
+                            match_score_cleaned.append("TIEBREAK")
+                            tiebreak_score_cleaned.append("[" + tiebreaks_parsed[tiebreak_counter] + "]")
+                            tiebreak_counter += 1
+                    # Finalize match scores
+                    concat_match_score = ""
+                    element_count = len(match_score_cleaned)
+                    for k in xrange(0,  element_count - 1):
+                        concat_match_score += match_score_cleaned[k] + "::"
+                    concat_match_score += match_score_cleaned[element_count - 1]
+                    fix_concat_match_score = concat_match_score.replace("::TIEBREAK::", " ")
+                    match_score = fix_concat_match_score.split('::')
+                        
+                    # Finalize tiebreak scores
+                    concat_tiebreak_score = ""
+                    tiebreak_element_count = len(tiebreak_score_cleaned)
+                    for k in xrange(0, tiebreak_element_count - 1):
+                        concat_tiebreak_score += tiebreak_score_cleaned[k] + "::"
+                    concat_tiebreak_score += tiebreak_score_cleaned[element_count -1]
 
-                # Tiebreaks
-                tiebreaks_xpath = "//table[contains(@class, 'day-table')]/tbody[" + str(i + 1) + "]/tr[" + str(j + 1) + "]/td[contains(@class, 'day-table-score')]/a/sup/text()"
-                tiebreaks_parsed = xpath_parse(tourney_tree, tiebreaks_xpath)
+                    fix_concat_tiebreak_score = concat_tiebreak_score.replace("::[", "(")
+                    fix_concat_tiebreak_score = fix_concat_tiebreak_score.replace("]::", ") ")    
+                    tiebreak_score = fix_concat_tiebreak_score.split('::')
 
-                # Fixing tiebreak problem
-                tiebreak_counter = 0
-                match_score_cleaned = []
-                tiebreak_score_cleaned = []
-                for element in match_score_text_parsed:
-                    if len(element) > 0:
-                        match_score_cleaned.append(regex_strip_string(element))
-                        tiebreak_score_cleaned.append(regex_strip_string(element))
+                    match_score = match_score[0].strip()
+                    match_score_tiebreaks = tiebreak_score[0].strip()
+
+                    winner_sets_won = 0
+                    loser_sets_won = 0
+                    winner_games_won = 0
+                    loser_games_won = 0
+                    winner_tiebreaks_won = 0
+                    loser_tiebreaks_won = 0
+                    match_score_split = match_score.split(' ')
+
+                    for sets in match_score_split:
+                        if len(sets) == 2:
+                            if sets[0] > sets[1]:
+                                winner_sets_won += 1
+                                winner_games_won += int(sets[0])
+                                loser_games_won += int(sets[1])
+                                if sets == '76': winner_tiebreaks_won += 1
+
+                            elif sets[0] < sets[1]:
+                                loser_sets_won += 1
+                                winner_games_won += int(sets[0])
+                                loser_games_won += int(sets[1])
+                                if sets == '67': loser_tiebreaks_won += 1
+
+                        elif len(sets) == 3:
+                            if sets == '810':
+                                loser_sets_won += 1
+                                loser_games_won += 10
+                                winner_games_won += 8
+                            elif sets == '108':
+                                winner_sets_won += 1
+                                winner_games_won += 10
+                                loser_games_won += 8
+                            elif sets == '911':
+                                loser_sets_won += 1
+                                loser_games_won += 11
+                                winner_games_won += 9
+                            elif sets == '119':
+                                winner_sets_won += 1
+                                winner_games_won += 11
+                                loser_games_won += 9
+
+                        elif len(sets) == 4 and sets.isdigit() == True:
+                            if sets[0:1] > sets[2:3]:
+                                winner_sets_won += 1
+                                winner_games_won += int(sets[0:1])
+                                loser_games_won += int(sets[2:3])
+                            elif sets[2:3] > sets[0:1]:
+                                loser_sets_won += 1
+                                winner_games_won += int(sets[0:1])
+                                loser_games_won += int(sets[2:3])
+                                                
+                    # Match stats URL
+                    match_stats_url_xpath = tourney_match_count_xpath = "//table[contains(@class, 'day-table')]/tbody[" + str(i + 1) + "]/tr[" + str(j + 1) + "]/td[contains(@class, 'day-table-score')]/a/@href"
+                    match_stats_url_parsed = xpath_parse(tourney_day_tree, match_stats_url_xpath)
+                    match_stats_url_cleaned = []
+                    for element in match_stats_url_parsed:
+                        if len(element) > 0:
+                            match_stats_url_cleaned.append(regex_strip_string(element))
+                        else:
+                            match_stats_url_cleaned.append("TIEBREAK")
+                        
+                    if len(match_stats_url_cleaned) > 0:
+                        match_stats_url_suffix = match_stats_url_cleaned[0]
+                        match_stats_url_suffix_split = match_stats_url_suffix.split('/')
+                        #tourney_long_slug = match_stats_url_suffix_split[3]
+                        #tourney_match_id = match_stats_url_split[10]
+                        match_urls.append(match_stats_url_suffix)
                     else:
-                        match_score_cleaned.append("TIEBREAK")
-                        tiebreak_score_cleaned.append("[" + tiebreaks_parsed[tiebreak_counter] + "]")
-                        tiebreak_counter += 1
-
-                # Finalize match scores
-                concat_match_score = ""
-                element_count = len(match_score_cleaned)
-                for k in xrange(0,  element_count - 1):
-                    concat_match_score += match_score_cleaned[k] + "::"
-                concat_match_score += match_score_cleaned[element_count - 1]
-
-                fix_concat_match_score = concat_match_score.replace("::TIEBREAK::", " ")
-                match_score = fix_concat_match_score.split('::')
-                
-                # Finalize tiebreak scores
-                concat_tiebreak_score = ""
-                tiebreak_element_count = len(tiebreak_score_cleaned)
-                for k in xrange(0, tiebreak_element_count - 1):
-                    concat_tiebreak_score += tiebreak_score_cleaned[k] + "::"
-                concat_tiebreak_score += tiebreak_score_cleaned[element_count -1]
-
-                fix_concat_tiebreak_score = concat_tiebreak_score.replace("::[", "(")
-                fix_concat_tiebreak_score = fix_concat_tiebreak_score.replace("]::", ") ")    
-                tiebreak_score = fix_concat_tiebreak_score.split('::')
-
-                match_score = match_score[0].strip()
-                match_score_tiebreaks = tiebreak_score[0].strip()
-
-                winner_sets_won = 0
-                loser_sets_won = 0
-                winner_games_won = 0
-                loser_games_won = 0
-                winner_tiebreaks_won = 0
-                loser_tiebreaks_won = 0
-                match_score_split = match_score.split(' ')
-
-                for sets in match_score_split:
-                    if len(sets) == 2:
-                        if sets[0] > sets[1]:
-                            winner_sets_won += 1
-                            winner_games_won += int(sets[0])
-                            loser_games_won += int(sets[1])
-                            if sets == '76': winner_tiebreaks_won += 1
-
-                        elif sets[0] < sets[1]:
-                            loser_sets_won += 1
-                            winner_games_won += int(sets[0])
-                            loser_games_won += int(sets[1])
-                            if sets == '67': loser_tiebreaks_won += 1
-
-                    elif len(sets) == 3:
-                        if sets == '810':
-                            loser_sets_won += 1
-                            loser_games_won += 10
-                            winner_games_won += 8
-                        elif sets == '108':
-                            winner_sets_won += 1
-                            winner_games_won += 10
-                            loser_games_won += 8
-                        elif sets == '911':
-                            loser_sets_won += 1
-                            loser_games_won += 11
-                            winner_games_won += 9
-                        elif sets == '119':
-                            winner_sets_won += 1
-                            winner_games_won += 11
-                            loser_games_won += 9
-
-                    elif len(sets) == 4 and sets.isdigit() == True:
-                        if sets[0:1] > sets[2:3]:
-                            winner_sets_won += 1
-                            winner_games_won += int(sets[0:1])
-                            loser_games_won += int(sets[2:3])
-                        elif sets[2:3] > sets[0:1]:
-                            loser_sets_won += 1
-                            winner_games_won += int(sets[0:1])
-                            loser_games_won += int(sets[2:3])
-
-                # Match id
-                match_id = tourney_year + "-" + tourney_id + "-" + winner_player_id + "-" + loser_player_id
-                                        
-                # Match stats URL
-                match_stats_url_xpath = tourney_match_count_xpath = "//table[contains(@class, 'day-table')]/tbody[" + str(i + 1) + "]/tr[" + str(j + 1) + "]/td[contains(@class, 'day-table-score')]/a/@href"
-                match_stats_url_parsed = xpath_parse(tourney_tree, match_stats_url_xpath)
-                match_stats_url_cleaned = []
-                for element in match_stats_url_parsed:
-                    if len(element) > 0:
-                        match_stats_url_cleaned.append(regex_strip_string(element))
-                    else:
-                        match_stats_url_cleaned.append("TIEBREAK")
-                
-                if len(match_stats_url_cleaned) > 0:
-                    match_stats_url_suffix = match_stats_url_cleaned[0]
-                    match_stats_url_suffix_split = match_stats_url_suffix.split('/')
-                    #tourney_long_slug = match_stats_url_suffix_split[3]
-                    #tourney_match_id = match_stats_url_split[10]
-                    match_urls.append(match_stats_url_suffix)
-                else:
-                    match_stats_url_suffix = ''
-                    tourney_long_slug = ''
+                        match_stats_url_suffix = ''
+                        tourney_long_slug = ''
 
                 # Store data
-                match_data.append([tourney_round_name, round_order, match_order, winner_name, winner_player_id, winner_slug, loser_name, loser_player_id, loser_slug, winner_seed, loser_seed, match_score_tiebreaks, winner_sets_won, loser_sets_won, winner_games_won, loser_games_won, winner_tiebreaks_won, loser_tiebreaks_won, match_id, match_stats_url_suffix])
+                match_data.append([day_count_parsed[z].replace(".","/"), tourney_round_name, winner_name, loser_name, match_score_tiebreaks, winner_sets_won, loser_sets_won, winner_games_won, loser_games_won, winner_tiebreaks_won, loser_tiebreaks_won])
                 #time.sleep(.100)       
 
     output = [match_data, match_urls]
@@ -345,23 +331,25 @@ def scrape_tourney(tourney_url_suffix):
 def dataScrapper(start_year,end_year):
     # STEP 1: Scrape year page
     tourney_match = []
+    tourney_match.append(["ATP", "Location", "Date", "Round", "Winner", "Loser", "Score", "Winner Sets Won", "Loser Sets Won", "Winner Total Games", "Loser Total Games", "Winner Tie-Breaks", "Loser Tie-Breaks"])
     for h in xrange(int(start_year), int(end_year) + 1):
 
         year = str(h)
         scrape_year_output = scrape_year(year)
         tourney_data_scrape = scrape_year_output[0]
         tourney_urls_scrape = scrape_year_output[1]
-        print ''
-        print 'Scraping match info for ' + str(len(tourney_urls_scrape)) + ' tournaments...'
-        print 'Year    Order    Tournament                                Matches'
-        print '----    -----    ----------                                -------'
+        print('')
+        print('Scraping match info for ' + str(len(tourney_urls_scrape)) + ' tournaments...')
+        print('Year    Order    Tournament                                Matches')
+        print('----    -----    ----------                                -------')
     
         for i in xrange(0 , len(tourney_urls_scrape)):
          if len(tourney_urls_scrape[i]) > 0:
                 # STEP 2: Scrape tournament page    
                 match_data_scrape = []
                 match_urls_scrape = []
-                scrape_tourney_output = scrape_tourney(tourney_urls_scrape[i])
+                # we ensure we reach the results page
+                scrape_tourney_output = scrape_tourney(tourney_urls_scrape[i].replace("live-scores","results"))
                 match_data_scrape = scrape_tourney_output[0]
                 match_urls_scrape = scrape_tourney_output[1]
                 # STEP 3: tourney_data + match_data
@@ -369,15 +357,15 @@ def dataScrapper(start_year,end_year):
                     foo = tourney_data_scrape[i] + match
                     tourney_match.append(foo)
 
-                spacing_count1 = len('Order') - len(str(tourney_data_scrape[i][1]))
+                spacing_count1 = len('Order') - len(str(tourney_data_scrape[i][0]))
                 spacing1 = ''
                 for j in xrange(0, spacing_count1): spacing1 += ' '
 
-                spacing_count2 = 41 - len(tourney_data_scrape[i][2])
+                spacing_count2 = 41 - len(tourney_data_scrape[i][1])
                 spacing2 = ''
                 for j in xrange(0, spacing_count2): spacing2 += ' '
 
-                print year + '    ' + str(tourney_data_scrape[i][1]) + spacing1 + '    ' + tourney_data_scrape[i][2] + spacing2 + ' ' + str(len(match_data_scrape))
+                print(str(year) + '    ' + str(tourney_data_scrape[i][0]) + str(spacing1) + '    ' + str(tourney_data_scrape[i][1]) + str(spacing2) + ' ' + str(len(match_data_scrape)))
         filename = "match_scores_" + str(start_year) + "-" + str(end_year)
         array2csv(tourney_match, filename)
     return 0
