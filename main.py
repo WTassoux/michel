@@ -10,13 +10,14 @@ from testfunctions import *
 from datetime import *
 from model import *
 import time
+from scraping_module import *
 
 # This variable is to measure how long it took to execute the code
 start_time = time.time()
 
 ########################################################
 ### TODO ### First we need to retrieve the latest data
-#dataScrapper()
+dataScrapper(2019,2019)
 
 """
 
@@ -102,7 +103,7 @@ features = pandas.concat([features_odds,
                   features_recent],1)
 
 features.to_csv("completed_dataframe.csv",index=False)
-"""
+
 
 ######################################
 # Model computation
@@ -221,7 +222,7 @@ conf=conf.reset_index(drop=True)
 #print(conf)
 conf.to_csv("result_data.csv",index=False)
 
-
+"""
 #conf=pandas.read_csv("result_data.csv")
 #ROI = profitComputation(1,conf)
 #print("ROI for the dataset: "+str(ROI)+"%")
