@@ -15,3 +15,14 @@ tourney_details_url_xpath ="//tr[contains(@class, 'tourney-result')][1]/td[3]/sp
 tourney_details_url_parsed = xpath_parse(tree, tourney_details_url_xpath)
 tourney_details_url_parsed[0]=tourney_details_url_parsed[0].strip()
 print(tourney_details_url_parsed)
+
+tourney_surface1_url_xpath ="//tr[contains(@class, 'tourney-result')][1]/td[5]/div/div/text()"
+tourney_surface1_url_parsed = xpath_parse(tree, tourney_surface1_url_xpath)
+tourney_surface1_url_parsed[0]=tourney_surface1_url_parsed[0].strip()
+
+tourney_surface2_url_xpath ="//tr[contains(@class, 'tourney-result')][1]/td[5]/div/div/span/text()"
+tourney_surface2_url_parsed = xpath_parse(tree, tourney_surface2_url_xpath)
+tourney_surface2_url_parsed[0]=tourney_surface2_url_parsed[0].strip()
+
+tourney_surface=tourney_surface1_url_parsed[0]+', '+tourney_surface2_url_parsed[0]
+print(tourney_surface)
