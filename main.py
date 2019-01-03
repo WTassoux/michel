@@ -17,8 +17,12 @@ start_time = time.time()
 
 
 ########################################################
-### TODO ### First we need to retrieve the latest data
-dataScrapper(2019,2019)
+# First element is the start date for the scraping
+# Second element is the end date for the scraping
+# Date are inclusive
+start_scraping_date=datetime(2019,1,3)
+end_scraping_date=datetime(2019,1,3)
+dataScrapper(start_scraping_date,end_scraping_date)
 
 """
 
