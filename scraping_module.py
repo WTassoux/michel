@@ -1,14 +1,19 @@
 from lxml import html
+import lxml
 import requests
 import re
 import json
 import csv
+from xlsxwriter.workbook import Workbook
 import sys
 import time
-from datetime import timedelta, datetime
+from datetime import timedelta, datetime, date
 import numbers
 from concurrent.futures import ProcessPoolExecutor
 import concurrent.futures
+from dateutil.relativedelta import relativedelta, MO
+
+greedy=False
 
 # Python 2 backwards compatibility
 try:
@@ -89,6 +94,8 @@ def scrape_year(year,start_scraping_date,end_scraping_date):
         tourney_startdate=datetime.strptime(tourney_startdate_url_parsed, '%Y.%m.%d')
         # We assume a tournament can only be 15 days in length so we see if we are in the startdate + 15 window
         tourney_enddate=tourney_startdate+timedelta(days=15)
+        # the official startdate does not take into account the qualifying rounds which are usually 2-3 days before
+        tourney_startdate=tourney_startdate+timedelta(days=-3)
         if(tourney_enddate<start_scraping_date or tourney_startdate>end_scraping_date):
             continue
         
@@ -100,12 +107,16 @@ def scrape_year(year,start_scraping_date,end_scraping_date):
         tourney_location_xpath = "//tr[contains(@class, 'tourney-result')][" + str(i + 1) + "]/td[3]/span[contains(@class, 'tourney-location')]/text()"
         tourney_location =xpath_parse(year_tree, tourney_location_xpath)
         tourney_location=tourney_location[0].strip()
+        # We keep only the city name and drop the country
+        tourney_location=tourney_location.split(',')
+        tourney_location=tourney_location[0]
         #print(tourney_location)
-        tourney_surface1_xpath = "//tr[contains(@class, 'tourney-result')][" + str(i + 1) + "]/td[5]/div/div[contains(@class, 'item-details')]/text()"
-        tourney_surface1 = xpath_parse(year_tree, tourney_surface1_xpath) 
-        tourney_surface2_xpath = "//tr[contains(@class, 'tourney-result')][" + str(i + 1) + "]/td[5]/div/div/span[contains(@class, 'item-value')]/text()"
-        tourney_surface2 = xpath_parse(year_tree, tourney_surface2_xpath)
-        tourney_surface =  tourney_surface1[0].strip()+', '+tourney_surface2[0].strip()
+        tourney_court_xpath = "//tr[contains(@class, 'tourney-result')][" + str(i + 1) + "]/td[5]/div/div[contains(@class, 'item-details')]/text()"
+        tourney_court_raw = xpath_parse(year_tree, tourney_court_xpath) 
+        tourney_surface_xpath = "//tr[contains(@class, 'tourney-result')][" + str(i + 1) + "]/td[5]/div/div/span[contains(@class, 'item-value')]/text()"
+        tourney_surface_raw = xpath_parse(year_tree, tourney_surface_xpath)
+        tourney_surface =  tourney_surface_raw[0].strip()
+        tourney_court = tourney_court_raw[0].strip()
         #print(tourney_surface)
         tourney_class_xpath = "//tr[contains(@class, 'tourney-result')][" + str(i + 1) + "]/td/img/@src"
         tourney_class_raw = xpath_parse(year_tree, tourney_class_xpath)
@@ -138,7 +149,7 @@ def scrape_year(year,start_scraping_date,end_scraping_date):
             problem_tourneys.append([year, tourney_order, tourney_name])
         
         # Store data        
-        tourney_data.append([tourney_order, tourney_location, tourney_name, tourney_surface, tourney_class])
+        tourney_data.append([tourney_order, tourney_location, tourney_name, tourney_class, tourney_court, tourney_surface])
 
     # Print missing info
     if len(problem_tourneys) > 0:
@@ -173,6 +184,7 @@ def scrape_tourney(tourney_url_suffix,start_scraping_date,end_scraping_date):
     tourney_id = url_split[7]
 
     # Tourney tree
+
     tourney_tree = html_parse_tree(tourney_url)     
 
     match_urls = []
@@ -237,7 +249,16 @@ def scrape_tourney(tourney_url_suffix,start_scraping_date,end_scraping_date):
                 winner_url_parsed = xpath_parse(tourney_day_tree, winner_url_xpath)
 
                 winner_name = winner_name_parsed[0]
-                #winner_url = winner_url_parsed[0]
+                # we reformat the name to remain consistent with historical data
+                first_last_name = winner_name.split(' ')
+                # we keep only the first letter of first name
+                first_last_name[0] = first_last_name[0][0]+'.'
+                # we reconcatenate all the items into one name
+                winner_name=''
+                for s in xrange(1, len(first_last_name)):
+                    winner_name=winner_name+first_last_name[s]+' '
+                winner_name=winner_name+first_last_name[0]
+                winner_url = winner_url_parsed[0]
                 #winner_url_split = winner_url.split('/')
                 #winner_slug = winner_url_split[3]
                 #winner_player_id = winner_url_split[4]            
@@ -251,21 +272,53 @@ def scrape_tourney(tourney_url_suffix,start_scraping_date,end_scraping_date):
 
                 try:
                     loser_name = loser_name_parsed[0]
-                    #loser_url = loser_url_parsed[0]
+                    loser_url = loser_url_parsed[0]
+                    # we reformat the name to remain consistent with historical data
+                    first_last_name = loser_name.split(' ')
+                    # we keep only the first letter of first name
+                    first_last_name[0] = first_last_name[0][0]+'.'
+                    # we reconcatenate all the items into one name
+                    loser_name=''
+                    for s in xrange(1, len(first_last_name)):
+                        loser_name=loser_name+first_last_name[s]+' '
+                    loser_name=loser_name+first_last_name[0]
                     #loser_url_split = loser_url.split('/')
                     #loser_slug = loser_url_split[3]
                     #loser_player_id = loser_url_split[4]
                 # this exeption needs to be handled somehow - not sure when this happens
                 except Exception:
                     loser_name = ''
-                    #loser_url = ''
+                    loser_url = ''
                     #loser_slug = ''
                     #loser_player_id = ''
-
+                
+                # Players' ATP ranking
+                
+                winner_atp=getRanking(winner_name,today.strftime("%Y.%m.%d"),url_prefix+winner_url.replace('overview','rankings-history'),greedy)
+                loser_atp=getRanking(loser_name,today.strftime("%Y.%m.%d"),url_prefix+loser_url.replace('overview','rankings-history'),greedy)
+                
                 # Match score
                 match_score_text_xpath = "//table[contains(@class, 'day-table')]/tbody[" + str(i + 1) + "]/tr[" + str(j + 1) + "]/td[contains(@class, 'day-table-score')]/a/node()"
                 match_score_text_parsed = xpath_parse(tourney_day_tree, match_score_text_xpath)
-
+                outcome='Completed'
+                clean_score=[]
+                for c in xrange(0,len(match_score_text_parsed)):
+                    cleaned=[]
+                    if isinstance(match_score_text_parsed[c], (lxml.etree._ElementStringResult,lxml.etree._ElementUnicodeResult)) and match_score_text_parsed[c].strip()!='':
+                        cleaned=match_score_text_parsed[c].strip().split(' ')
+                    if cleaned!=[]:
+                        if cleaned[0]=='(W/O)':
+                            outcome='Walkover' 
+                            cleaned=[]
+                        elif cleaned[-1]=='(RET)':
+                            outcome='Retired'
+                            cleaned[-1]=''
+                    for d in xrange(0,len(cleaned)):
+                        clean_score=clean_score+list(cleaned[d])
+                #normalize the score length (10 for up to 5 sets)
+                for p in range(len(clean_score),10):
+                    clean_score.append('')
+                
                 if len(match_score_text_parsed) > 0:
 
                     # Tiebreaks
@@ -276,6 +329,7 @@ def scrape_tourney(tourney_url_suffix,start_scraping_date,end_scraping_date):
                     tiebreak_counter = 0
                     match_score_cleaned = []
                     tiebreak_score_cleaned = []
+
                     for element in match_score_text_parsed:
                         if len(element) > 0:
                             match_score_cleaned.append(regex_strip_string(element))
@@ -356,7 +410,18 @@ def scrape_tourney(tourney_url_suffix,start_scraping_date,end_scraping_date):
                                 loser_sets_won += 1
                                 winner_games_won += int(sets[0:1])
                                 loser_games_won += int(sets[2:3])
-                                                
+                    bestof=3
+                    # We now guess whether it is best of 5 or best of 3
+                    # it is a guess because there is 2 corner cases we cannot deduct: 
+                    #   when the loser retires with total number of sets below 3 (strictly)
+                    #   in the case of a W/O
+                    if winner_sets_won==3 or winner_sets_won+loser_sets_won>=4 or loser_sets_won>=2 or (winner_sets_won==2 and outcome=='Retired'):
+                        bestof=5
+                    # in this case, we assume the same value as the previous match and hope for the best
+                    if outcome=='W/O' or (winner_sets_won==1 and outcome=='Retired'):
+                        if match_data!=[]:
+                            bestof=match_data[-1][8]
+                        
                     # Match stats URL
                     match_stats_url_xpath = tourney_match_count_xpath = "//table[contains(@class, 'day-table')]/tbody[" + str(i + 1) + "]/tr[" + str(j + 1) + "]/td[contains(@class, 'day-table-score')]/a/@href"
                     match_stats_url_parsed = xpath_parse(tourney_day_tree, match_stats_url_xpath)
@@ -378,11 +443,71 @@ def scrape_tourney(tourney_url_suffix,start_scraping_date,end_scraping_date):
                         tourney_long_slug = ''
 
                 # Store data
-                match_data.append([today.strftime('%Y-%m-%d'), tourney_round_name, winner_name, loser_name, match_score_tiebreaks, winner_sets_won, loser_sets_won, winner_games_won, loser_games_won, winner_tiebreaks_won, loser_tiebreaks_won])
+                match_data.append([today.strftime('%m/%d/%Y'), tourney_round_name, bestof, winner_name, loser_name, winner_atp, loser_atp, '', '']+clean_score+[winner_sets_won, loser_sets_won, outcome])
                 #time.sleep(.100)       
 
     output = [match_data, match_urls]
     return output
+
+# Retrieve player historical ranking
+# we use a local csv to store all ranking history for all players to avoid multiplying the http calls
+# we check in this csv file if data is available otherwise we get it online and append the local db
+# the csv contains the following: Player name, Date (always a Monday), Ranking
+#we have a date, player, url and greedy parameter in input
+# the greedy mode must be used with caution! For speed purposes, it does not check whether the entry already exists
+def getRanking(name,date,url,greedy):
+    # we get the previous monday
+    current_date=datetime.strptime(date,"%Y.%m.%d")
+    previous_monday = current_date + relativedelta(weekday=MO(-1))
+    #print("Previous monday was: "+previous_monday.strftime("%Y.%m.%d"))
+    partial_row=name+","+previous_monday.strftime("%Y.%m.%d")
+    ranking='-1'
+    player_ranking_db=open("player_ranking_data.csv","r")
+    for row in player_ranking_db:
+        if partial_row in row:
+            data=row.split(',')
+            ranking=data[2]
+            break
+    #case where we do not have the data in the table, we fetch it online and append it to our csv file
+    if ranking=='-1':
+        # code to fetch the data
+        atptree = html_parse_tree(url)
+        list_dates_xpath = "//table[contains(@class, 'mega-table')]/tbody/tr/td[1]/text()"
+        list_dates_text_parsed = xpath_parse(atptree, list_dates_xpath)
+        list_dates=regex_strip_array(list_dates_text_parsed)
+
+        list_rankings_xpath = "//table[contains(@class, 'mega-table')]/tbody/tr/td[2]/text()"
+        list_rankings_text_parsed = xpath_parse(atptree, list_rankings_xpath)
+        list_rankings=regex_strip_array(list_rankings_text_parsed)
+        # we iterate through each date
+        for i in xrange(0, len(list_dates)):
+            this_monday=datetime.strptime(list_dates[i],"%Y.%m.%d")
+            if(this_monday==previous_monday):
+                ranking=list_rankings[i]
+                #we add this result to our local db file (or all results is greedy mode ON)
+                ranking_db=open("player_ranking_data.csv","a")
+                if greedy:
+                    for j in xrange(0,len(list_rankings)):
+                        line="\n"+name+","+list_dates[j]+","+list_rankings[j]
+                        ranking_db.write(line)
+                else:
+                    line="\n"+name+","+list_dates[i]+","+ranking
+                    ranking_db.write(line)
+                ranking_db.close()
+                break
+    #case where we did not find a match at all or player did not get atp point yet
+    if ranking=='-1' or ranking=='0':
+        ranking = '2000'
+    # case where player is tied (ranking finished with a T that needs to be removed)
+    elif not(ranking.isdigit()):
+        ranking=ranking[:-1]
+    return ranking
+
+# We need the odds for each match. We use oddsportal to get it. It works only 30 days in the past
+# for the moment, no module can retrieve the historical odds and those are available at www.tennis-data.co.uk/data.php
+
+#https://www.oddsportal.com/matches/tennis/20181231/
+
 
 # Main scrapping function
 # Command line input
@@ -393,8 +518,8 @@ def dataScrapper(start_scraping_date,end_scraping_date):
     end_year=end_scraping_date.year
     # STEP 1: Scrape year page
     tourney_match = []
-    tourney_match.append(["ATP", "Location", "Tournament", "Surface", "Class", "Date", "Round", "Winner", "Loser", "Score", "Winner Sets Won", "Loser Sets Won", "Winner Total Games", "Loser Total Games", "Winner Tie-Breaks", "Loser Tie-Breaks"])
-    for h in xrange(int(start_year), int(end_year) + 1):
+    tourney_match.append(["ATP", "Location", "Tournament", "Date", "Series", "Court", "Surface", "Round", "Best Of", "Winner", "Loser", "WRank", "LRank", "WPts", "LPts", "W1", "L1", "W2", "L2", "W3", "L3", "W4", "L4", "W5", "L5","WSets", "LSets", "Comment", "PSW", "PSL"])
+    for h in xrange(int(start_year), int(end_year) + 2):
 
         year = str(h)
         scrape_year_output = scrape_year(year,start_scraping_date,end_scraping_date)
@@ -416,7 +541,7 @@ def dataScrapper(start_scraping_date,end_scraping_date):
                 match_urls_scrape = scrape_tourney_output[1]
                 # STEP 3: tourney_data + match_data
                 for match in match_data_scrape:
-                    foo = tourney_data_scrape[i] + match
+                    foo = tourney_data_scrape[i][:3] + match[:1] + tourney_data_scrape[i][3:] + match[1:]
                     tourney_match.append(foo)
 
                 spacing_count1 = len('Order') - len(str(tourney_data_scrape[i][0]))
@@ -430,4 +555,13 @@ def dataScrapper(start_scraping_date,end_scraping_date):
                 print(str(year) + '    ' + str(tourney_data_scrape[i][0]) + str(spacing1) + '    ' + str(tourney_data_scrape[i][1]) + str(spacing2) + ' ' + str(len(match_data_scrape)))
         filename = "match_scores_" + str(start_scraping_date.strftime('%Y%m%d')) + "_" + str(end_scraping_date.strftime('%Y%m%d'))
         array2csv(tourney_match, filename)
+        # convert file to xlsx
+        workbook = Workbook(filename + '.xlsx')
+        worksheet = workbook.add_worksheet()
+        with open(filename+'.csv', 'rt', encoding='utf8') as f:
+            reader = csv.reader(f)
+            for r, row in enumerate(reader):
+                for c, col in enumerate(row):
+                    worksheet.write(r, c, col)
+        workbook.close()
     return 0
