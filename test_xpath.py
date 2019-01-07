@@ -45,6 +45,7 @@ def html_parse_tree(url):
     tree = html.fromstring(page.content)
     return tree
 
+"""
 sample = open("xpath_file.html","r")
 
 text = sample.read()
@@ -68,7 +69,7 @@ for i in range(len(clean_score),10):
 print(clean_score)
 
 sample.close()
-"""
+
 # data from this url: https://www.atptour.com/en/players/maximilian-marterer/mn13/rankings-history
 datafile = open("marterer_ranking_data_page.html","r")
 data = sample.read()
@@ -138,3 +139,62 @@ def getRanking(name,date,url,greedy):
 atp=getRanking(name,date,url,greedy)
 print(atp)
 """
+
+
+# data from this url: https://www.oddsportal.com/matches/tennis/20181231/ date format is YYYYMMDD
+datafile = open("odds_portal_html_example.html","r")
+data = datafile.read()
+datafile.close()
+odds_tree = html.fromstring(data)
+
+# we have a date and both players in input
+# we do not check whether the match played is in the correct tournament, we assume they can only play in one tourney at once
+# We retrieve the whole data to ensure we call the website only once
+# Input: the match date
+# Output: the list of matches with the player1, player2 and their respective odds
+def getDailyOdds(date):
+    # each entry is a list with player1, player2, and their respective odds
+    odds_table=[]
+
+    # let's fetch the loser's name
+    match_odds_loser_text_xpath = "//td[contains(@class, 'name table-participant')]/a/text()"
+    match_odds_loser_text_parsed = xpath_parse(odds_tree, match_odds_loser_text_xpath)
+    # let's fetch the winner's name
+    match_odds_winner_text_xpath = "//td[contains(@class, 'name table-participant')]/a/span/text()"
+    match_odds_winner_text_parsed = xpath_parse(odds_tree, match_odds_winner_text_xpath)
+    # let's fetch the odds
+    match_odds_text_xpath = "//a[contains(@xparam, 'odds_text')]/text()"
+    match_odds_text_parsed = xpath_parse(odds_tree, match_odds_text_xpath)
+    
+    # let's clean the results
+    n=0
+    for i in xrange(0,len(match_odds_loser_text_parsed)):
+        cleanup = match_odds_loser_text_parsed[i].split(' - ')
+        if cleanup[0]=='':
+            odds_table.append([match_odds_winner_text_parsed[n],cleanup[1].strip(),match_odds_text_parsed[2*i],match_odds_text_parsed[2*i+1]])
+            n+=1
+        elif cleanup[1]=='':
+            odds_table.append([match_odds_winner_text_parsed[n],cleanup[0].strip(),match_odds_text_parsed[2*i+1],match_odds_text_parsed[2*i]])
+            n+=1
+        # case where we have no match in bold and this xpath query returned both winner and loser
+        # we need to check the sets to know who won
+        else:
+            print(cleanup)
+            match_sets_text_xpath = "//td[contains(@class, 'center bold table-odds table-score')]/text()"
+            match_sets_text_parsed = xpath_parse(odds_tree, match_sets_text_xpath)
+            score=match_sets_text_parsed[i].split(':')
+            if score[0]>score[1]:
+                odds_table.append([cleanup[0].strip(),cleanup[1].strip(),match_odds_text_parsed[2*i],match_odds_text_parsed[2*i+1]])
+            else:
+                odds_table.append([cleanup[1].strip(),cleanup[0].strip(),match_odds_text_parsed[2*i+1],match_odds_text_parsed[2*i]])
+
+
+
+    return odds_table
+
+
+date = "12.31.2018"
+
+odds=getDailyOdds(date)
+
+print(odds)
