@@ -6,6 +6,16 @@ import re
 from datetime import datetime
 from datetime import date
 from dateutil.relativedelta import relativedelta, MO
+import json
+from selenium import webdriver
+from selenium.webdriver.chrome.options import Options
+# Going headless
+options = Options()
+options.add_argument('--headless')
+options.add_argument('--disable-gpu')  # Last I checked this was necessary.
+driver = webdriver.Chrome('/usr/bin/chromedriver', chrome_options=options)
+
+#from lxml.etree import fromstring
 
 # Python 2 backwards compatibility
 try:
@@ -142,10 +152,10 @@ print(atp)
 
 
 # data from this url: https://www.oddsportal.com/matches/tennis/20181231/ date format is YYYYMMDD
-datafile = open("odds_portal_html_example.html","r")
-data = datafile.read()
-datafile.close()
-odds_tree = html.fromstring(data)
+#datafile = open("odds_portal_html_example.html","r")
+#data = datafile.read()
+#datafile.close()
+#odds_tree = html.fromstring(data)
 
 # we have a date and both players in input
 # we do not check whether the match played is in the correct tournament, we assume they can only play in one tourney at once
@@ -153,6 +163,15 @@ odds_tree = html.fromstring(data)
 # Input: the match date
 # Output: the list of matches with the player1, player2 and their respective odds
 def getDailyOdds(date):
+    # each entry is a list with player1, player2, and their respective odds
+    #print(date)
+    date=date.split('.')
+    day=date[0]+date[1]+date[2]
+    url='https://www.oddsportal.com/matches/tennis/'+day+'/'
+    # let's retrieve the odds for that date
+    #print(url)
+    odds_tree = html_parse_tree(url)
+    print(odds_tree)
     # each entry is a list with player1, player2, and their respective odds
     odds_table=[]
 
@@ -193,8 +212,29 @@ def getDailyOdds(date):
     return odds_table
 
 
-date = "12.31.2018"
+date = "2018.12.29"
 
-odds=getDailyOdds(date)
+#odds=getDailyOdds(date)
 
-print(odds)
+#print(odds)
+
+url = "https://www.oddsportal.com/matches/tennis/20181229/"
+browser = webdriver.Chrome('/usr/bin/chromedriver', chrome_options=options)
+
+browser.get(url)
+#soup = BeautifulSoup(browser.page_source)
+tree = html.fromstring(browser.page_source)
+match_odds_text_xpath = "//a[contains(@xparam, 'odds_text')]/text()"
+match_odds_text_parsed = xpath_parse(tree, match_odds_text_xpath)
+print(match_odds_text_parsed)
+print(len(match_odds_text_parsed))
+
+match_nodds_text_xpath = "//td[contains(@class, 'odds-nowrp deactivateOdd')]/span/text()"
+match_nodds_text_parsed = xpath_parse(tree, match_nodds_text_xpath)
+print(match_nodds_text_parsed)
+
+
+match_allodds_text_xpath = "//td[contains(@class, 'odds-nowrp')]/@xodd"
+match_allodds_text_parsed = xpath_parse(tree, match_allodds_text_xpath)
+print(match_allodds_text_parsed)
+print(len(match_allodds_text_parsed))

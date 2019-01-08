@@ -20,8 +20,8 @@ start_time = time.time()
 # First element is the start date for the scraping
 # Second element is the end date for the scraping
 # Date are inclusive
-start_scraping_date=datetime(2018,12,29)
-end_scraping_date=datetime(2018,12,29)
+start_scraping_date=datetime(2018,12,28)
+end_scraping_date=datetime(2019,1,3)
 dataScrapper(start_scraping_date,end_scraping_date)
 
 """

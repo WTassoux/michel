@@ -12,6 +12,8 @@ import numbers
 from concurrent.futures import ProcessPoolExecutor
 import concurrent.futures
 from dateutil.relativedelta import relativedelta, MO
+from selenium import webdriver
+from selenium.webdriver.chrome.options import Options
 
 greedy=False
 
@@ -64,6 +66,72 @@ def regex_strip_string(string):
     string = re.sub('\r', '', string).strip()
     string = re.sub('\t', '', string).strip()
     return string
+    
+    
+# We need the odds for each match. We use oddsportal to get it. It works only 30 days in the past
+# for the moment, no module can retrieve the historical odds and those are available at www.tennis-data.co.uk/data.php
+#
+#https://www.oddsportal.com/matches/tennis/20181231/
+#
+# we have a date and both players in input
+# we do not check whether the match played is in the correct tournament, we assume they can only play in one tourney at once
+# We retrieve the whole data to ensure we call the website only once
+# Input: the match date YYYY.MM.DD
+# Output: the list of matches with the player1, player2 and their respective odds
+def getDailyOdds(date):
+    #print(date)
+    date=date.split('.')
+    day=date[0]+date[1]+date[2]
+    #print(day)
+    url='https://www.oddsportal.com/matches/tennis/'+day+'/'
+    # let's retrieve the odds for that date
+    # this website uses AJAX calls after the page loads. Need to use the heavy artillery
+    # Going headless
+    options = Options()
+    options.add_argument('--headless')
+    options.add_argument('--disable-gpu')  # Last I checked this was necessary.
+    browser = webdriver.Chrome('/usr/bin/chromedriver', chrome_options=options)
+    browser.get(url)
+    odds_tree = html.fromstring(browser.page_source)
+
+    # each entry is a list with player1, player2, and their respective odds
+    odds_table=[]
+
+    # let's fetch the loser's name
+    match_odds_loser_text_xpath = "//td[contains(@class, 'name table-participant')]/a/text()"
+    match_odds_loser_text_parsed = xpath_parse(odds_tree, match_odds_loser_text_xpath)
+    # let's fetch the winner's name
+    match_odds_winner_text_xpath = "//td[contains(@class, 'name table-participant')]/a/span/text()"
+    match_odds_winner_text_parsed = xpath_parse(odds_tree, match_odds_winner_text_xpath)
+    # let's fetch the odds
+    match_odds_text_xpath = "//td[contains(@class, 'odds-nowrp')]/@xodd"
+    match_odds_text_parsed = xpath_parse(odds_tree, match_odds_text_xpath)
+    # let's clean the results
+    n=0
+    for i in xrange(0,len(match_odds_loser_text_parsed)):
+        cleanup = match_odds_loser_text_parsed[i].split(' - ')
+        if cleanup[0]=='':
+            odds_table.append([match_odds_winner_text_parsed[n],cleanup[1].strip(),match_odds_text_parsed[2*i],match_odds_text_parsed[2*i+1]])
+            n+=1
+        elif cleanup[1]=='':
+            odds_table.append([match_odds_winner_text_parsed[n],cleanup[0].strip(),match_odds_text_parsed[2*i+1],match_odds_text_parsed[2*i]])
+            n+=1
+        # case where we have no match in bold and this xpath query returned both winner and loser
+        # we need to check the sets to know who won
+        else:
+            match_sets_text_xpath = "//td[contains(@class, 'center bold table-odds table-score')]/text()"
+            match_sets_text_parsed = xpath_parse(odds_tree, match_sets_text_xpath)
+            score=match_sets_text_parsed[i].split(':')
+            if len(score)==1:
+                odds_table.append([cleanup[0].strip(),cleanup[1].strip(),match_odds_text_parsed[2*i],match_odds_text_parsed[2*i+1]])
+            elif score[0]>score[1]:
+                odds_table.append([cleanup[0].strip(),cleanup[1].strip(),match_odds_text_parsed[2*i],match_odds_text_parsed[2*i+1]])
+            else:
+                odds_table.append([cleanup[1].strip(),cleanup[0].strip(),match_odds_text_parsed[2*i+1],match_odds_text_parsed[2*i]])
+
+
+    return odds_table
+
 
 def scrape_year(year,start_scraping_date,end_scraping_date):
     # Setup
@@ -184,9 +252,7 @@ def scrape_tourney(tourney_url_suffix,start_scraping_date,end_scraping_date):
     tourney_id = url_split[7]
 
     # Tourney tree
-
     tourney_tree = html_parse_tree(tourney_url)     
-
     match_urls = []
     match_data = []
     
@@ -228,7 +294,15 @@ def scrape_tourney(tourney_url_suffix,start_scraping_date,end_scraping_date):
             # We check that we are in the scraping window
             if(today<start_scraping_date or today>end_scraping_date):
                 continue
-            
+
+            # Odds trees (we gather yesterday, the current day and tomorrow to ensure full coverage with the timezones
+            # We assume here we gather dates that can be retrieved (i.e. within 30 days of the present) - so we will have the correct date for sure
+            yesterday = today+timedelta(days=-1)
+            tomorrow = today+timedelta(days=+1)
+            odds_yes = getDailyOdds(yesterday.strftime('%Y.%m.%d'))
+            odds_tod = getDailyOdds(today.strftime('%Y.%m.%d'))
+            odds_tom = getDailyOdds(tomorrow.strftime('%Y.%m.%d'))
+
             round_order = i + 1
 
             tourney_round_name = tourney_round_name_parsed[i]
@@ -251,8 +325,12 @@ def scrape_tourney(tourney_url_suffix,start_scraping_date,end_scraping_date):
                 winner_name = winner_name_parsed[0]
                 # we reformat the name to remain consistent with historical data
                 first_last_name = winner_name.split(' ')
-                # we keep only the first letter of first name
-                first_last_name[0] = first_last_name[0][0]+'.'
+                # we keep only the first letter of first name except for hyphened names: Jo-Wilfried => J-W.
+                first_name=first_last_name[0].split('-')
+                if len(first_name)==2:
+                    first_last_name[0] = first_name[0][0]+'.'+first_name[1][0]+'.'
+                else:
+                    first_last_name[0] = first_last_name[0][0]+'.'
                 # we reconcatenate all the items into one name
                 winner_name=''
                 for s in xrange(1, len(first_last_name)):
@@ -275,8 +353,12 @@ def scrape_tourney(tourney_url_suffix,start_scraping_date,end_scraping_date):
                     loser_url = loser_url_parsed[0]
                     # we reformat the name to remain consistent with historical data
                     first_last_name = loser_name.split(' ')
-                    # we keep only the first letter of first name
-                    first_last_name[0] = first_last_name[0][0]+'.'
+                    # we keep only the first letter of first name except for hyphened names: Jo-Wilfried => J.W.
+                    first_name=first_last_name[0].split('-')
+                    if len(first_name)==2:
+                        first_last_name[0] = first_name[0][0]+'.'+first_name[1][0]+'.'
+                    else:
+                        first_last_name[0] = first_last_name[0][0]+'.'
                     # we reconcatenate all the items into one name
                     loser_name=''
                     for s in xrange(1, len(first_last_name)):
@@ -287,13 +369,13 @@ def scrape_tourney(tourney_url_suffix,start_scraping_date,end_scraping_date):
                     #loser_player_id = loser_url_split[4]
                 # this exeption needs to be handled somehow - not sure when this happens
                 except Exception:
+                    print("No loser found on "+today.strftime('%Y.%m.%d')+" for winner: "+winner_name)
                     loser_name = ''
                     loser_url = ''
                     #loser_slug = ''
                     #loser_player_id = ''
                 
                 # Players' ATP ranking
-                
                 winner_atp=getRanking(winner_name,today.strftime("%Y.%m.%d"),url_prefix+winner_url.replace('overview','rankings-history'),greedy)
                 loser_atp=getRanking(loser_name,today.strftime("%Y.%m.%d"),url_prefix+loser_url.replace('overview','rankings-history'),greedy)
                 
@@ -442,8 +524,58 @@ def scrape_tourney(tourney_url_suffix,start_scraping_date,end_scraping_date):
                         match_stats_url_suffix = ''
                         tourney_long_slug = ''
 
+
+                # Let's gather the odds for the match
+                odds_found=False
+                # Let's slightly change the way names are written: Tsonga J.W. becomes Tsonga J-W.
+                win_odds=winner_name[:-1].replace('.','-')+'.'
+                los_odds=loser_name[:-1].replace('.','-')+'.'
+                # We try yesterday's odds first
+                for a in xrange(0,len(odds_yes)):
+                    if odds_yes[a][0]==win_odds and odds_yes[a][1]==los_odds:
+                        oddsw=odds_yes[a][2]
+                        oddsl=odds_yes[a][3]
+                        odds_found=True
+                        break
+                    elif odds_yes[a][1]==win_odds and odds_yes[a][0]==los_odds:
+                        oddsw=odds_yes[a][3]
+                        oddsl=odds_yes[a][2]
+                        odds_found=True
+                        break
+                # We try today's odds if still no luck
+                if not(odds_found):
+                    for a in xrange(0,len(odds_tod)):
+                        if odds_tod[a][0]==win_odds and odds_tod[a][1]==los_odds:
+                            oddsw=odds_tod[a][2]
+                            oddsl=odds_tod[a][3]
+                            odds_found=True
+                            break
+                        elif odds_tod[a][1]==win_odds and odds_tod[a][0]==los_odds:
+                            oddsw=odds_tod[a][3]
+                            oddsl=odds_tod[a][2]
+                            odds_found=True
+                            break
+                # We try tomorrow's odds if still no luck
+                if not(odds_found):
+                    for a in xrange(0,len(odds_tom)):
+                        if odds_tom[a][0]==win_odds and odds_tom[a][1]==los_odds:
+                            oddsw=odds_tom[a][2]
+                            oddsl=odds_tom[a][3]
+                            odds_found=True
+                            break
+                        elif odds_tom[a][1]==win_odds and odds_tom[a][0]==los_odds:
+                            oddsw=odds_tom[a][3]
+                            oddsl=odds_tom[a][2]
+                            odds_found=True
+                            break
+                if not(odds_found):
+                    print('Odds not found for match :'+win_odds+' - '+los_odds+' on date: '+today.strftime('%Y.%m.%d'))
+                    oddsl=''
+                    oddsw=''
+
+
                 # Store data
-                match_data.append([today.strftime('%m/%d/%Y'), tourney_round_name, bestof, winner_name, loser_name, winner_atp, loser_atp, '', '']+clean_score+[winner_sets_won, loser_sets_won, outcome])
+                match_data.append([today.strftime('%m/%d/%Y'), tourney_round_name, bestof, winner_name, loser_name, winner_atp, loser_atp, '', '']+clean_score+[winner_sets_won, loser_sets_won, outcome, oddsw, oddsl])
                 #time.sleep(.100)       
 
     output = [match_data, match_urls]
@@ -496,6 +628,8 @@ def getRanking(name,date,url,greedy):
                 ranking_db.close()
                 break
     #case where we did not find a match at all or player did not get atp point yet
+    if name=='Al-Mutawa J.':
+        print('Al-Mutawa J. '+ranking)
     if ranking=='-1' or ranking=='0':
         ranking = '2000'
     # case where player is tied (ranking finished with a T that needs to be removed)
@@ -503,10 +637,7 @@ def getRanking(name,date,url,greedy):
         ranking=ranking[:-1]
     return ranking
 
-# We need the odds for each match. We use oddsportal to get it. It works only 30 days in the past
-# for the moment, no module can retrieve the historical odds and those are available at www.tennis-data.co.uk/data.php
 
-#https://www.oddsportal.com/matches/tennis/20181231/
 
 
 # Main scrapping function
