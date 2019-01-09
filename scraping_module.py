@@ -14,6 +14,7 @@ import concurrent.futures
 from dateutil.relativedelta import relativedelta, MO
 from selenium import webdriver
 from selenium.webdriver.chrome.options import Options
+import unicodedata
 
 greedy=False
 
@@ -29,6 +30,47 @@ except NameError:
 ### This web scraper will retrieve future matches and live results from the ATP World Tour website
 
 ## We define a few functions first
+
+def remove_accents(input_str):
+    nfkd_form = unicodedata.normalize('NFKD', input_str)
+    return u"".join([c for c in nfkd_form if not unicodedata.combining(c)])
+
+# Compute similarity between player names and tournaments
+def levenshtein_distance(a,b):
+    # Let's normalize the strings
+    # Remove all ponctuation, special characters and accents
+    a=a.replace('-',' ')
+    b=b.replace('-',' ')
+    a=a.replace('.',' ')
+    b=b.replace('.',' ')
+    a=remove_accents(a)
+    b=remove_accents(b)
+    a=a.strip()
+    b=b.strip()
+    a=a.lower()
+    b=b.lower()
+    n, m = len(a), len(b)
+    if n > m:
+        # Make sure n <= m, to use O(min(n,m)) space
+        a,b = b,a
+        n,m = m,n
+
+    current = range(n+1)
+    for i in range(1,m+1):
+        previous, current = current, [i]+[0]*n
+        for j in range(1,n+1):
+            add, delete = previous[j]+1, current[j-1]+1
+            change = previous[j-1]
+            if a[j-1] != b[i-1]:
+                change = change + 1
+            current[j] = min(add, delete, change)
+
+    return current[n]
+
+
+
+
+
 def array2csv(array, filename):
     csv_array = array
     csv_out = open(filename + ".csv", 'w')
@@ -122,7 +164,7 @@ def getDailyOdds(date):
             match_sets_text_xpath = "//td[contains(@class, 'center bold table-odds table-score')]/text()"
             match_sets_text_parsed = xpath_parse(odds_tree, match_sets_text_xpath)
             score=match_sets_text_parsed[i].split(':')
-            if len(score)==1:
+            if len(score)!=2:
                 odds_table.append([cleanup[0].strip(),cleanup[1].strip(),match_odds_text_parsed[2*i],match_odds_text_parsed[2*i+1]])
             elif score[0]>score[1]:
                 odds_table.append([cleanup[0].strip(),cleanup[1].strip(),match_odds_text_parsed[2*i],match_odds_text_parsed[2*i+1]])
@@ -527,17 +569,19 @@ def scrape_tourney(tourney_url_suffix,start_scraping_date,end_scraping_date):
 
                 # Let's gather the odds for the match
                 odds_found=False
-                # Let's slightly change the way names are written: Tsonga J.W. becomes Tsonga J-W.
-                win_odds=winner_name[:-1].replace('.','-')+'.'
-                los_odds=loser_name[:-1].replace('.','-')+'.'
+                
+                # We use the levenshtein distance to measure similarity between names (max 3 characters can be different)
+                threshold=4
+                win_odds=winner_name
+                los_odds=loser_name
                 # We try yesterday's odds first
                 for a in xrange(0,len(odds_yes)):
-                    if odds_yes[a][0]==win_odds and odds_yes[a][1]==los_odds:
+                    if levenshtein_distance(odds_yes[a][0],win_odds)<threshold and levenshtein_distance(odds_yes[a][1],los_odds)<threshold:
                         oddsw=odds_yes[a][2]
                         oddsl=odds_yes[a][3]
                         odds_found=True
                         break
-                    elif odds_yes[a][1]==win_odds and odds_yes[a][0]==los_odds:
+                    elif levenshtein_distance(odds_yes[a][1],win_odds)<threshold and levenshtein_distance(odds_yes[a][0],los_odds)<threshold:
                         oddsw=odds_yes[a][3]
                         oddsl=odds_yes[a][2]
                         odds_found=True
@@ -545,12 +589,12 @@ def scrape_tourney(tourney_url_suffix,start_scraping_date,end_scraping_date):
                 # We try today's odds if still no luck
                 if not(odds_found):
                     for a in xrange(0,len(odds_tod)):
-                        if odds_tod[a][0]==win_odds and odds_tod[a][1]==los_odds:
+                        if levenshtein_distance(odds_tod[a][0],win_odds)<threshold and levenshtein_distance(odds_tod[a][1],los_odds)<threshold:
                             oddsw=odds_tod[a][2]
                             oddsl=odds_tod[a][3]
                             odds_found=True
                             break
-                        elif odds_tod[a][1]==win_odds and odds_tod[a][0]==los_odds:
+                        elif levenshtein_distance(odds_tod[a][1],win_odds)<threshold and levenshtein_distance(odds_tod[a][0],los_odds)<threshold:
                             oddsw=odds_tod[a][3]
                             oddsl=odds_tod[a][2]
                             odds_found=True
@@ -558,12 +602,12 @@ def scrape_tourney(tourney_url_suffix,start_scraping_date,end_scraping_date):
                 # We try tomorrow's odds if still no luck
                 if not(odds_found):
                     for a in xrange(0,len(odds_tom)):
-                        if odds_tom[a][0]==win_odds and odds_tom[a][1]==los_odds:
+                        if levenshtein_distance(odds_tom[a][0],win_odds)<threshold and levenshtein_distance(odds_tom[a][1],los_odds)<threshold:
                             oddsw=odds_tom[a][2]
                             oddsl=odds_tom[a][3]
                             odds_found=True
                             break
-                        elif odds_tom[a][1]==win_odds and odds_tom[a][0]==los_odds:
+                        elif levenshtein_distance(odds_tom[a][1],win_odds)<threshold and levenshtein_distance(odds_tom[a][0],los_odds)<threshold:
                             oddsw=odds_tom[a][3]
                             oddsl=odds_tom[a][2]
                             odds_found=True
@@ -628,10 +672,8 @@ def getRanking(name,date,url,greedy):
                 ranking_db.close()
                 break
     #case where we did not find a match at all or player did not get atp point yet
-    if name=='Al-Mutawa J.':
-        print('Al-Mutawa J. '+ranking)
     if ranking=='-1' or ranking=='0':
-        ranking = '2000'
+        ranking = 'NR'
     # case where player is tied (ranking finished with a T that needs to be removed)
     elif not(ranking.isdigit()):
         ranking=ranking[:-1]

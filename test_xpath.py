@@ -148,8 +148,8 @@ def getRanking(name,date,url,greedy):
 
 atp=getRanking(name,date,url,greedy)
 print(atp)
-"""
 
+"""
 
 # data from this url: https://www.oddsportal.com/matches/tennis/20181231/ date format is YYYYMMDD
 #datafile = open("odds_portal_html_example.html","r")
@@ -212,29 +212,82 @@ def getDailyOdds(date):
     return odds_table
 
 
-date = "2018.12.29"
+date = "2019.01.07"
 
 #odds=getDailyOdds(date)
 
 #print(odds)
-
-url = "https://www.oddsportal.com/matches/tennis/20181229/"
+"""
+url = "https://www.oddsportal.com/matches/tennis/20190109/"
 browser = webdriver.Chrome('/usr/bin/chromedriver', chrome_options=options)
 
 browser.get(url)
 #soup = BeautifulSoup(browser.page_source)
 tree = html.fromstring(browser.page_source)
-match_odds_text_xpath = "//a[contains(@xparam, 'odds_text')]/text()"
-match_odds_text_parsed = xpath_parse(tree, match_odds_text_xpath)
-print(match_odds_text_parsed)
-print(len(match_odds_text_parsed))
-
-match_nodds_text_xpath = "//td[contains(@class, 'odds-nowrp deactivateOdd')]/span/text()"
-match_nodds_text_parsed = xpath_parse(tree, match_nodds_text_xpath)
-print(match_nodds_text_parsed)
-
+"""
+sample = open("xpath_sets_score.html","r")
+text = sample.read()
+tree = html.fromstring(text)
 
 match_allodds_text_xpath = "//td[contains(@class, 'odds-nowrp')]/@xodd"
 match_allodds_text_parsed = xpath_parse(tree, match_allodds_text_xpath)
 print(match_allodds_text_parsed)
 print(len(match_allodds_text_parsed))
+
+all_match_sets_text_xpath = "//td[contains(@class, 'center bold table-odds table-score') or contains(@class, 'table-score table-odds live-score center bold')]/node()"
+all_match_sets_text_parsed = xpath_parse(tree, all_match_sets_text_xpath)
+print(all_match_sets_text_parsed)
+print(len(all_match_sets_text_parsed))
+
+text_xpath = "//td[contains(@class, 'name table-participant')]/a/node()"
+text_parsed = xpath_parse(tree, text_xpath)
+print(text_parsed)
+print(len(text_parsed))
+
+"""
+import unicodedata
+
+def remove_accents(input_str):
+    nfkd_form = unicodedata.normalize('NFKD', input_str)
+    return u"".join([c for c in nfkd_form if not unicodedata.combining(c)])
+
+# Compute similarity between player names and tournaments
+def levenshtein_distance(a,b):
+    # Let's normalize the strings
+    # Remove all ponctuation, special characters and accents
+    a=a.replace('-',' ')
+    b=b.replace('-',' ')
+    a=a.replace('.',' ')
+    b=b.replace('.',' ')
+    a=remove_accents(a)
+    b=remove_accents(b)
+    a=a.strip()
+    b=b.strip()
+    a=a.lower()
+    b=b.lower()
+    n, m = len(a), len(b)
+    if n > m:
+        # Make sure n <= m, to use O(min(n,m)) space
+        a,b = b,a
+        n,m = m,n
+
+    current = range(n+1)
+    for i in range(1,m+1):
+        previous, current = current, [i]+[0]*n
+        for j in range(1,n+1):
+            add, delete = previous[j]+1, current[j-1]+1
+            change = previous[j-1]
+            if a[j-1] != b[i-1]:
+                change = change + 1
+            current[j] = min(add, delete, change)
+
+    return current[n]
+
+name1="de Minaur A."
+name2="De Minaur A."
+
+
+print(levenshtein_distance(name1,name2))
+
+"""
+
