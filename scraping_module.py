@@ -67,9 +67,28 @@ def levenshtein_distance(a,b):
 
     return current[n]
 
-
-
-
+# we convert the round of 16, 32 etc... to 1st, 2nd etc... rounds
+# this function works for both syntaxes (current plays and past matches
+# we use the levenshtein distance as syntax may change
+def convertRound(depth,size):
+    #we avoid qualifying rounds
+    if "ualifying" in depth:
+        return depth
+    depth_list=["1st Round","2nd Round","3rd Round","4th Round","Quarterfinals","Semifinals","The Final"]
+    real_depth=1
+    while 2**real_depth<size:
+        real_depth+=1
+    real_size=2**real_depth
+    if levenshtein_distance(depth,depth_list[-1])<=4 or depth=='F':
+        return depth_list[-1]
+    if levenshtein_distance(depth,depth_list[-2])<=2 or depth=='SF':
+        return depth_list[-2]
+    if levenshtein_distance(depth,depth_list[-3])<=2 or depth=='QF':
+        return depth_list[-3]
+    depth_num=depth[-2:]
+    i=real_depth/int(depth_num)
+    return depth_list[int(i)]
+            
 
 def array2csv(array, filename):
     csv_array = array
@@ -152,14 +171,14 @@ def getDailyOdds(date):
     match_sets_text_xpath = "//td[contains(@class, 'center bold table-odds table-score') or contains(@class, 'table-score table-odds live-score center bold')]/node()"
     match_sets_text_parsed = xpath_parse(odds_tree, match_sets_text_xpath)
     next_node_xpath = "//td[contains(@class, 'name table-participant')]/following::td[1]/@class"
-    next_node_parsed = xpath_parse(tree, next_node_xpath)
+    next_node_parsed = xpath_parse(odds_tree, next_node_xpath)
     final_sets_list=[]
     h=0
     for g in xrange(0,len(next_node_parsed)):
         if next_node_parsed[g]=='odds-nowrp':
             final_sets_list.append('')
         else:
-            final_sets_list.append(all_match_sets_text_parsed[h])
+            final_sets_list.append(match_sets_text_parsed[h])
             h+=1
     # let's clean the results
     n=0
@@ -325,7 +344,8 @@ def scrape_tourney(tourney_url_suffix,start_scraping_date,end_scraping_date):
     # the scraping will occur at the end of this function
     # even if the date stops at today, we still retrieve the planned matches as some matches may not be finished yet in some timezones
     retrieve_planned_matches=False
-    if day_count_parsed[0]<=end_scraping_date:
+    last_parsed_day=datetime.strptime(day_count_parsed[0], '%Y.%m.%d')
+    if last_parsed_day<=end_scraping_date:
         retrieve_planned_matches=True
 
     # check for the case were there are no dates available
@@ -341,7 +361,11 @@ def scrape_tourney(tourney_url_suffix,start_scraping_date,end_scraping_date):
         else:
             tourney_day_tree = html_parse_tree(tourney_url)
             no_days=True
-
+        
+        # Tournament size - required for round computation
+        size_list=xpath_parse(tourney_day_tree,"//tr/td/div/div/a/span/text()")
+        tourney_size=int(regex_strip_string(size_list[0]))
+                
         tourney_round_name_xpath = "//table[contains(@class, 'day-table')]/thead/tr/th/text()"
         tourney_round_name_parsed = xpath_parse(tourney_day_tree, tourney_round_name_xpath)
         tourney_round_count = len(tourney_round_name_parsed)
@@ -366,7 +390,7 @@ def scrape_tourney(tourney_url_suffix,start_scraping_date,end_scraping_date):
             round_order = i + 1
 
             tourney_round_name = tourney_round_name_parsed[i]
-
+            tourney_round_name=convertRound(tourney_round_name,tourney_size)
             round_match_count_xpath = "//table[contains(@class, 'day-table')]/tbody[" + str(i + 1) + "]/tr/td[contains(@class, 'day-table-name')][1]/a/text()"
             round_match_count_parsed = xpath_parse(tourney_day_tree, round_match_count_xpath)
             round_match_count = len(round_match_count_parsed)
@@ -641,8 +665,134 @@ def scrape_tourney(tourney_url_suffix,start_scraping_date,end_scraping_date):
                 #time.sleep(.100)       
 
 
-tourney_url.replace("results","daily-schedule")
-    for z in xrange()
+    if retrieve_planned_matches:
+        # Retrieve future matches and matches that have not finished yet
+        tourney_url.replace("results","daily-schedule")
+        tourney_tree = html_parse_tree(tourney_url)
+
+        tourney_days_xpath = "//ul[@data-value='day']/li/@data-value"
+        days_parsed = xpath_parse(tourney_tree, tourney_days_xpath)
+
+        # we loop on the days planned (could be max 2 days)
+        for z in xrange(0,len(days_parsed)):
+            day_url="https://www.atptour.com/en/scores/current/sydney/338/daily-schedule?day="+days_parsed[z]
+            day_tree = html_parse_tree(day_url)
+            
+            date_xpath = "//h3[@class='day-table-date']/text()"
+            date_parsed = xpath_parse(day_tree, date_xpath)
+            today=datetime.strptime(date_parsed[0],"%A, %B %d, %Y")
+            # We check that we are in the scraping window
+            if(today<start_scraping_date or today>end_scraping_date):
+                continue
+            # we prepare the data that will be required
+            # round
+            round_list=regex_strip_array(xpath_parse(day_tree,"//td[@class='day-table-round']/text()"))
+            # best of - we use the type of tournament for that
+            tourney_type_banner=xpath_parse(day_tree,"//td[@class='tourney-badge-wrapper']/img/@src")
+            bestof=3
+            if (tourney_type_banner[0].find('slam') != -1): 
+                bestof = "5"
+            # Player 1
+            player1_list=xpath_parse(day_tree,"//td[@class='day-table-name']/a[1]/text()")
+            player1url_list=xpath_parse(day_tree,"//td[@class='day-table-name']/a[1]/@href")
+            # we reformat the name to remain consistent with historical data
+            for h in xrange(0,len(player1_list)):
+                first_last_name = player1_list[h].split(' ')
+                # we keep only the first letter of first name
+                first_name=first_last_name[0].split('-')
+                if len(first_name)==2:
+                    first_last_name[0] = first_name[0][0]+'.'+first_name[1][0]+'.'
+                else:
+                    first_last_name[0] = first_last_name[0][0]+'.'
+                # we reconcatenate all the items into one name
+                winner_name=''
+                for s in xrange(1, len(first_last_name)):
+                    winner_name=winner_name+first_last_name[s]+' '
+                winner_name=winner_name+first_last_name[0]
+                player1_list[h]=winner_name
+            # Player 2
+            player2_list=xpath_parse(day_tree,"//td[@class='day-table-name']/div/a[1]/text()")
+            player2url_list=xpath_parse(day_tree,"//td[@class='day-table-name']/div/a[1]/@href")
+            # we reformat the name to remain consistent with historical data
+            for h in xrange(0,len(player2_list)):
+                first_last_name = player2_list[h].split(' ')
+                # we keep only the first letter of first name
+                first_name=first_last_name[0].split('-')
+                if len(first_name)==2:
+                    first_last_name[0] = first_name[0][0]+'.'+first_name[1][0]+'.'
+                else:
+                    first_last_name[0] = first_last_name[0][0]+'.'
+                # we reconcatenate all the items into one name
+                winner_name=''
+                for s in xrange(1, len(first_last_name)):
+                    winner_name=winner_name+first_last_name[s]+' '
+                winner_name=winner_name+first_last_name[0]
+                player2_list[h]=winner_name
+            # Tournament size - required for round computation
+            size_list=xpath_parse(day_tree,"//tr/td/div/div/a/span/text()")
+            tourney_size=int(regex_strip_string(size_list[0]))
+            # Round - needs to be converted
+            round_list=regex_strip_array(xpath_parse(day_tree,"//td[@class='day-table-round']/text()"))
+            for i in xrange(len(round_list)):
+                round_list[i]=convertRound(round_list[i],tourney_size)
+
+            # score will always be null so we return an empty list of length 10
+            clean_score=[]
+            for p in range(len(clean_score),10):
+                            clean_score.append('')
+            match_data=[]
+            print(label_list)
+
+            # we loop on the lists to build the match_data list
+            for n in xrange(0,len(player1_list)):
+                # Match type - to know whether it is ATP singles or WTA
+                type_list=xpath_parse(day_tree,"(//td[@class='day-table-button'])["+(n+1)+"]/a/text()")
+                # Label
+                label_list=regex_strip_array(xpath_parse(day_tree,"(//td[@class='day-table-vertical-label'])["+(n+1)+"]/span/text()"))
+
+                if type_list[0]=="H2H" and label_list[0]=="VS":
+                    # Players' ATP ranking
+                    winner_atp=getRanking(player1_list[n],today.strftime("%Y.%m.%d"),url_prefix+winner_url.replace('overview','rankings-history'),greedy)
+                    loser_atp=getRanking(player2_list[n],today.strftime("%Y.%m.%d"),url_prefix+loser_url.replace('overview','rankings-history'),greedy)
+                    # Let's gather the odds for the match
+                    odds_found=False        
+                    # We use the levenshtein distance to measure similarity between names (max 3 characters can be different)
+                    threshold=4
+                    win_odds=player1_list[n]
+                    los_odds=player2_list[n]
+                    # We try yesterday's odds first
+                    for a in xrange(0,len(odds_tod)):
+                    # We try today's odds
+                        if not(odds_found):
+                            for a in xrange(0,len(odds_tod)):
+                                if levenshtein_distance(odds_tod[a][0],win_odds)<threshold and levenshtein_distance(odds_tod[a][1],los_odds)<threshold:
+                                    oddsw=odds_tod[a][2]
+                                    oddsl=odds_tod[a][3]
+                                    odds_found=True
+                                    break
+                                elif levenshtein_distance(odds_tod[a][1],win_odds)<threshold and levenshtein_distance(odds_tod[a][0],los_odds)<threshold:
+                                    oddsw=odds_tod[a][3]
+                                    oddsl=odds_tod[a][2]
+                                    odds_found=True
+                                    break
+                        # We try tomorrow's odds if still no luck
+                        if not(odds_found):
+                            for a in xrange(0,len(odds_tom)):
+                                if levenshtein_distance(odds_tom[a][0],win_odds)<threshold and levenshtein_distance(odds_tom[a][1],los_odds)<threshold:
+                                    oddsw=odds_tom[a][2]
+                                    oddsl=odds_tom[a][3]
+                                    odds_found=True
+                                    break
+                                elif levenshtein_distance(odds_tom[a][1],win_odds)<threshold and levenshtein_distance(odds_tom[a][0],los_odds)<threshold:
+                                    oddsw=odds_tom[a][3]
+                                    oddsl=odds_tom[a][2]
+                                    odds_found=True
+                                    break
+                        if not(odds_found):
+                            print('Odds not found for match :'+win_odds+' - '+los_odds+' on date: '+today.strftime('%Y.%m.%d'))
+                            oddsl=''
+                            oddsw=''
+                    match_data.append([today.strftime('%m/%d/%Y'), tourney_round_name, bestof, player1_list[n], player2_list[n], winner_atp, loser_atp, '', '']+clean_score+['', '', '', oddsw, oddsl])
 
     output = [match_data, match_urls]
     return output
