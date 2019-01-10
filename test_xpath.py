@@ -10,10 +10,10 @@ import json
 from selenium import webdriver
 from selenium.webdriver.chrome.options import Options
 # Going headless
-options = Options()
-options.add_argument('--headless')
-options.add_argument('--disable-gpu')  # Last I checked this was necessary.
-driver = webdriver.Chrome('/usr/bin/chromedriver', chrome_options=options)
+#options = Options()
+#options.add_argument('--headless')
+#options.add_argument('--disable-gpu')  # Last I checked this was necessary.
+#driver = webdriver.Chrome('/usr/bin/chromedriver', chrome_options=options)
 
 #from lxml.etree import fromstring
 
@@ -55,6 +55,144 @@ def html_parse_tree(url):
     tree = html.fromstring(page.content)
     return tree
 
+
+
+
+# Retrieve future matches and matches that have not finished yet
+tourney_url="https://www.atptour.com/en/scores/current/sydney/338/daily-schedule"
+tourney_tree = html_parse_tree(tourney_url)
+
+tourney_days_xpath = "//ul[@data-value='day']/li/@data-value"
+days_parsed = xpath_parse(tourney_tree, tourney_days_xpath)
+
+# we loop on the days planned (could be max 2 days)
+for z in xrange(0,len(days_parsed)):
+    day_url="https://www.atptour.com/en/scores/current/sydney/338/daily-schedule?day="+days_parsed[z]
+    day_tree = html_parse_tree(day_url)
+    
+    date_xpath = "//h3[@class='day-table-date']/text()"
+    date_parsed = xpath_parse(day_tree, date_xpath)
+    today=datetime.strptime(date_parsed[0],"%A, %B %d, %Y")
+    
+    # we prepare the data that will be required
+    # round
+    round_list=regex_strip_array(xpath_parse(day_tree,"//td[@class='day-table-round']/text()"))
+    # best of - we use the type of tournament for that
+    tourney_type_banner=xpath_parse(day_tree,"//td[@class='tourney-badge-wrapper']/img/@src")
+    bestof=3
+    if (tourney_type_banner[0].find('slam') != -1): 
+        bestof = "5"
+    # Player 1
+    player1_list=xpath_parse(day_tree,"//td[@class='day-table-name']/a[1]/text()")
+    player1url_list=xpath_parse(day_tree,"//td[@class='day-table-name']/a[1]/@href")
+    # we reformat the name to remain consistent with historical data
+    for h in xrange(0,len(player1_list)):
+        first_last_name = player1_list[h].split(' ')
+        # we keep only the first letter of first name
+        first_name=first_last_name[0].split('-')
+            if len(first_name)==2:
+                first_last_name[0] = first_name[0][0]+'.'+first_name[1][0]+'.'
+            else:
+                first_last_name[0] = first_last_name[0][0]+'.'
+            # we reconcatenate all the items into one name
+            winner_name=''
+            for s in xrange(1, len(first_last_name)):
+                winner_name=winner_name+first_last_name[s]+' '
+            winner_name=winner_name+first_last_name[0]
+        player1_list[h]=winner_name
+    # Player 2
+    player2_list=xpath_parse(day_tree,"//td[@class='day-table-name']/div/a[1]/text()")
+    player2url_list=xpath_parse(day_tree,"//td[@class='day-table-name']/div/a[1]/@href")
+    # we reformat the name to remain consistent with historical data
+    for h in xrange(0,len(player2_list)):
+        first_last_name = player2_list[h].split(' ')
+        # we keep only the first letter of first name
+        first_name=first_last_name[0].split('-')
+            if len(first_name)==2:
+                first_last_name[0] = first_name[0][0]+'.'+first_name[1][0]+'.'
+            else:
+                first_last_name[0] = first_last_name[0][0]+'.'
+            # we reconcatenate all the items into one name
+            winner_name=''
+            for s in xrange(1, len(first_last_name)):
+                winner_name=winner_name+first_last_name[s]+' '
+            winner_name=winner_name+first_last_name[0]
+        player2_list[h]=winner_name
+    # Match label - to know whether the match happened or not yet
+    label_list=xpath_parse(day_tree,"(//td[@class='day-table-vertical-label'])/text()")
+    # Round - needs to be converted
+    round_list=regex_strip_array(xpath_parse(day_tree,"//td[@class='day-table-round']/text()"))
+1st Round
+2nd Round
+3rd Round
+4th Round
+Quarterfinals
+Semifinals
+The Final
+
+
+
+    # score will always be null so we return an empty list of length 10
+    clean_score=[]
+    for p in range(len(clean_score),10):
+                    clean_score.append('')
+    match_data=[]
+    print(label_list)
+
+"""
+    # we loop on the lists to build the match_data list
+    for n in xrange(0,len(player1_list)):
+        # Match type - to know whether it is ATP singles or WTA
+        type_list=xpath_parse(day_tree,"(//td[@class='day-table-button'])["+(n+1)+"]/a/text()")
+        # Label
+        label_list=regex_strip_array(xpath_parse(day_tree,"(//td[@class='day-table-vertical-label'])["+(n+1)+"]/span/text()"))
+
+        if type_list[0]=="H2H" and label_list[0]=="VS":
+            # Players' ATP ranking
+            winner_atp=getRanking(player1_list[n],today.strftime("%Y.%m.%d"),url_prefix+winner_url.replace('overview','rankings-history'),greedy)
+            loser_atp=getRanking(player2_list[n],today.strftime("%Y.%m.%d"),url_prefix+loser_url.replace('overview','rankings-history'),greedy)
+            # Let's gather the odds for the match
+            odds_found=False        
+            # We use the levenshtein distance to measure similarity between names (max 3 characters can be different)
+            threshold=4
+            win_odds=player1_list[n]
+            los_odds=player2_list[n]
+            # We try yesterday's odds first
+            for a in xrange(0,len(odds_tod)):
+            # We try today's odds
+            if not(odds_found):
+                for a in xrange(0,len(odds_tod)):
+                    if levenshtein_distance(odds_tod[a][0],win_odds)<threshold and levenshtein_distance(odds_tod[a][1],los_odds)<threshold:
+                        oddsw=odds_tod[a][2]
+                        oddsl=odds_tod[a][3]
+                        odds_found=True
+                        break
+                    elif levenshtein_distance(odds_tod[a][1],win_odds)<threshold and levenshtein_distance(odds_tod[a][0],los_odds)<threshold:
+                        oddsw=odds_tod[a][3]
+                        oddsl=odds_tod[a][2]
+                        odds_found=True
+                        break
+            # We try tomorrow's odds if still no luck
+            if not(odds_found):
+                for a in xrange(0,len(odds_tom)):
+                    if levenshtein_distance(odds_tom[a][0],win_odds)<threshold and levenshtein_distance(odds_tom[a][1],los_odds)<threshold:
+                        oddsw=odds_tom[a][2]
+                        oddsl=odds_tom[a][3]
+                        odds_found=True
+                        break
+                    elif levenshtein_distance(odds_tom[a][1],win_odds)<threshold and levenshtein_distance(odds_tom[a][0],los_odds)<threshold:
+                        oddsw=odds_tom[a][3]
+                        oddsl=odds_tom[a][2]
+                        odds_found=True
+                        break
+            if not(odds_found):
+                print('Odds not found for match :'+win_odds+' - '+los_odds+' on date: '+today.strftime('%Y.%m.%d'))
+                oddsl=''
+                oddsw=''
+            match_data.append([today.strftime('%m/%d/%Y'), tourney_round_name, bestof, player1_list[n], player2_list[n], winner_atp, loser_atp, '', '']+clean_score+['', '', '', oddsw, oddsl])
+
+print(match_data)
+"""
 """
 sample = open("xpath_file.html","r")
 
@@ -149,7 +287,6 @@ def getRanking(name,date,url,greedy):
 atp=getRanking(name,date,url,greedy)
 print(atp)
 
-"""
 
 # data from this url: https://www.oddsportal.com/matches/tennis/20181231/ date format is YYYYMMDD
 #datafile = open("odds_portal_html_example.html","r")
@@ -217,14 +354,13 @@ date = "2019.01.07"
 #odds=getDailyOdds(date)
 
 #print(odds)
-"""
 url = "https://www.oddsportal.com/matches/tennis/20190109/"
 browser = webdriver.Chrome('/usr/bin/chromedriver', chrome_options=options)
 
 browser.get(url)
 #soup = BeautifulSoup(browser.page_source)
 tree = html.fromstring(browser.page_source)
-"""
+
 sample = open("xpath_sets_score.html","r")
 text = sample.read()
 tree = html.fromstring(text)
@@ -239,12 +375,22 @@ all_match_sets_text_parsed = xpath_parse(tree, all_match_sets_text_xpath)
 print(all_match_sets_text_parsed)
 print(len(all_match_sets_text_parsed))
 
-text_xpath = "//td[contains(@class, 'name table-participant')]/a/node()"
-text_parsed = xpath_parse(tree, text_xpath)
-print(text_parsed)
-print(len(text_parsed))
+next_node_xpath = "//td[contains(@class, 'name table-participant')]/following::td[1]/@class"
+next_node_parsed = xpath_parse(tree, next_node_xpath)
+print(next_node_parsed)
+print(len(next_node_parsed))
 
-"""
+final_sets_list=[]
+h=0
+for g in xrange(0,len(next_node_parsed)):
+    if next_node_parsed[g]=='odds-nowrp':
+        final_sets_list.append('')
+    else:
+        final_sets_list.append(all_match_sets_text_parsed[h])
+        h+=1
+print(final_sets_list)
+
+
 import unicodedata
 
 def remove_accents(input_str):
@@ -290,4 +436,3 @@ name2="De Minaur A."
 print(levenshtein_distance(name1,name2))
 
 """
-

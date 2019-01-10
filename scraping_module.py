@@ -148,6 +148,19 @@ def getDailyOdds(date):
     # let's fetch the odds
     match_odds_text_xpath = "//td[contains(@class, 'odds-nowrp')]/@xodd"
     match_odds_text_parsed = xpath_parse(odds_tree, match_odds_text_xpath)
+
+    match_sets_text_xpath = "//td[contains(@class, 'center bold table-odds table-score') or contains(@class, 'table-score table-odds live-score center bold')]/node()"
+    match_sets_text_parsed = xpath_parse(odds_tree, match_sets_text_xpath)
+    next_node_xpath = "//td[contains(@class, 'name table-participant')]/following::td[1]/@class"
+    next_node_parsed = xpath_parse(tree, next_node_xpath)
+    final_sets_list=[]
+    h=0
+    for g in xrange(0,len(next_node_parsed)):
+        if next_node_parsed[g]=='odds-nowrp':
+            final_sets_list.append('')
+        else:
+            final_sets_list.append(all_match_sets_text_parsed[h])
+            h+=1
     # let's clean the results
     n=0
     for i in xrange(0,len(match_odds_loser_text_parsed)):
@@ -161,9 +174,7 @@ def getDailyOdds(date):
         # case where we have no match in bold and this xpath query returned both winner and loser
         # we need to check the sets to know who won
         else:
-            match_sets_text_xpath = "//td[contains(@class, 'center bold table-odds table-score')]/text()"
-            match_sets_text_parsed = xpath_parse(odds_tree, match_sets_text_xpath)
-            score=match_sets_text_parsed[i].split(':')
+            score=final_sets_list[i].split(':')
             if len(score)!=2:
                 odds_table.append([cleanup[0].strip(),cleanup[1].strip(),match_odds_text_parsed[2*i],match_odds_text_parsed[2*i+1]])
             elif score[0]>score[1]:
@@ -304,12 +315,19 @@ def scrape_tourney(tourney_url_suffix,start_scraping_date,end_scraping_date):
     tourney_dates=tourney_dates[0].strip()
     tourney_end_date=datetime.strptime(tourney_dates[13:23], '%Y.%m.%d')
     
-    #match_data.append(["Date", "Round", "Winner", "Loser", "Score", "Winner Sets Won", "Loser Sets Won", "Winner Total Games", "Loser Total Games", "Winner Tie-Breaks", "Loser Tie-Breaks"])
     # We figure out the dates of the tournament and try to retrieve the matches for each day
     # This only works for the current year. Past years do not have dates and the iteration needs to be through the rounds directly
     tourney_dates_xpath = "//ul[@data-value='matchdate']/li[@data-value]/text()"
     day_count_parsed = xpath_parse(tourney_tree, tourney_dates_xpath)
     day_match_count = len(day_count_parsed)
+
+    # we see if there is a need to scrap the planned matches as well
+    # the scraping will occur at the end of this function
+    # even if the date stops at today, we still retrieve the planned matches as some matches may not be finished yet in some timezones
+    retrieve_planned_matches=False
+    if day_count_parsed[0]<=end_scraping_date:
+        retrieve_planned_matches=True
+
     # check for the case were there are no dates available
     if(day_match_count==0):
         day_match_count=1
@@ -367,7 +385,7 @@ def scrape_tourney(tourney_url_suffix,start_scraping_date,end_scraping_date):
                 winner_name = winner_name_parsed[0]
                 # we reformat the name to remain consistent with historical data
                 first_last_name = winner_name.split(' ')
-                # we keep only the first letter of first name except for hyphened names: Jo-Wilfried => J-W.
+                # we keep only the first letter of first name
                 first_name=first_last_name[0].split('-')
                 if len(first_name)==2:
                     first_last_name[0] = first_name[0][0]+'.'+first_name[1][0]+'.'
@@ -395,7 +413,7 @@ def scrape_tourney(tourney_url_suffix,start_scraping_date,end_scraping_date):
                     loser_url = loser_url_parsed[0]
                     # we reformat the name to remain consistent with historical data
                     first_last_name = loser_name.split(' ')
-                    # we keep only the first letter of first name except for hyphened names: Jo-Wilfried => J.W.
+                    # we keep only the first letter of first name
                     first_name=first_last_name[0].split('-')
                     if len(first_name)==2:
                         first_last_name[0] = first_name[0][0]+'.'+first_name[1][0]+'.'
@@ -621,6 +639,10 @@ def scrape_tourney(tourney_url_suffix,start_scraping_date,end_scraping_date):
                 # Store data
                 match_data.append([today.strftime('%m/%d/%Y'), tourney_round_name, bestof, winner_name, loser_name, winner_atp, loser_atp, '', '']+clean_score+[winner_sets_won, loser_sets_won, outcome, oddsw, oddsl])
                 #time.sleep(.100)       
+
+
+tourney_url.replace("results","daily-schedule")
+    for z in xrange()
 
     output = [match_data, match_urls]
     return output
