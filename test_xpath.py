@@ -123,22 +123,29 @@ def regex_strip_string(string):
     
     
     
-url='https://www.oddsportal.com/matches/tennis/20190110/'
+#url='https://www.oddsportal.com/matches/tennis/20190110/'
 # let's retrieve the odds for that date
 # this website uses AJAX calls after the page loads. Need to use the heavy artillery
 # Going headless
-options = Options()
-options.add_argument('--headless')
-options.add_argument('--disable-gpu')  # Last I checked this was necessary.
-browser = webdriver.Chrome('/usr/bin/chromedriver', chrome_options=options)
-browser.get(url)
-odds_tree = html.fromstring(browser.page_source)
+#options = Options()
+#options.add_argument('--headless')
+#options.add_argument('--disable-gpu')  # Last I checked this was necessary.
+#browser = webdriver.Chrome('/usr/bin/chromedriver', chrome_options=options)
+#browser.get(url)
+#odds_tree = html.fromstring(browser.page_source)
+
+f = open("xpath_sets_score.html",'r')
+#f = open("simple_xpath_test.html",'r')
+text = f.read()
+odds_tree = html.fromstring(text)
 
 # each entry is a list with player1, player2, and their respective odds
 odds_table=[]
 # let's fetch the loser's name
 match_odds_loser_text_xpath = "//td[contains(@class, 'name table-participant')]/a/text()"
 match_odds_loser_text_parsed = xpath_parse(odds_tree, match_odds_loser_text_xpath)
+# we clean the result as we retrieve noise from the webpage
+match_odds_loser_text_parsed = [x for x in match_odds_loser_text_parsed if x != u'\xa0']
 # let's fetch the winner's name
 match_odds_winner_text_xpath = "//td[contains(@class, 'name table-participant')]/a/span/text()"
 match_odds_winner_text_parsed = xpath_parse(odds_tree, match_odds_winner_text_xpath)
@@ -160,7 +167,6 @@ for g in xrange(0,len(next_node_parsed)):
         h+=1
 # let's clean the results
 n=0
-print(final_sets_list)
 for i in xrange(0,len(match_odds_loser_text_parsed)):
     cleanup = match_odds_loser_text_parsed[i].split(' - ')
     if cleanup[0]=='':
@@ -171,7 +177,7 @@ for i in xrange(0,len(match_odds_loser_text_parsed)):
         n+=1
     # case where we have no match in bold and this xpath query returned both winner and loser
     # we need to check the sets to know who won
-    if len(cleanup)<2:
+    else:
         if isinstance(final_sets_list[i], lxml.html.HtmlElement):
             score=[]
         else:
@@ -183,4 +189,7 @@ for i in xrange(0,len(match_odds_loser_text_parsed)):
         else:
             odds_table.append([cleanup[1].strip(),cleanup[0].strip(),match_odds_text_parsed[2*i+1],match_odds_text_parsed[2*i]])
 
+
 print(odds_table)
+print(len(odds_table))
+print(len(next_node_parsed))

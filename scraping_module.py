@@ -161,6 +161,8 @@ def getDailyOdds(date):
     # let's fetch the loser's name
     match_odds_loser_text_xpath = "//td[contains(@class, 'name table-participant')]/a/text()"
     match_odds_loser_text_parsed = xpath_parse(odds_tree, match_odds_loser_text_xpath)
+    # we clean the result as we retrieve noise from the webpage
+    match_odds_loser_text_parsed = [x for x in match_odds_loser_text_parsed if x != u'\xa0']
     # let's fetch the winner's name
     match_odds_winner_text_xpath = "//td[contains(@class, 'name table-participant')]/a/span/text()"
     match_odds_winner_text_parsed = xpath_parse(odds_tree, match_odds_winner_text_xpath)
@@ -193,7 +195,10 @@ def getDailyOdds(date):
         # case where we have no match in bold and this xpath query returned both winner and loser
         # we need to check the sets to know who won
         else:
-            score=final_sets_list[i].split(':')
+            if isinstance(final_sets_list[i], lxml.html.HtmlElement):
+                score=[]
+            else:
+                score=final_sets_list[i].split(':')
             if len(score)!=2:
                 odds_table.append([cleanup[0].strip(),cleanup[1].strip(),match_odds_text_parsed[2*i],match_odds_text_parsed[2*i+1]])
             elif score[0]>score[1]:
@@ -655,7 +660,7 @@ def scrape_tourney(tourney_url_suffix,start_scraping_date,end_scraping_date):
                             odds_found=True
                             break
                 if not(odds_found):
-                    print('Odds not found for match :'+win_odds+' - '+los_odds+' on date: '+today.strftime('%Y.%m.%d'))
+                    print('Odds not found for match :'+win_odds+' - '+los_odds+' on date: '+today.strftime('%Y.%m.%d')+'\nurl:https://www.oddsportal.com/matches/tennis/'+today.strftime('%Y%m%d')+'/')
                     oddsl=''
                     oddsw=''
 
@@ -789,7 +794,7 @@ def scrape_tourney(tourney_url_suffix,start_scraping_date,end_scraping_date):
                                     odds_found=True
                                     break
                         if not(odds_found):
-                            print('Odds not found for match :'+win_odds+' - '+los_odds+' on date: '+today.strftime('%Y.%m.%d'))
+                            print('Odds not found for match :'+win_odds+' - '+los_odds+' on date: '+today.strftime('%Y.%m.%d')+'\nurl:https://www.oddsportal.com/matches/tennis/'+today.strftime('%Y%m%d')+'/')
                             oddsl=''
                             oddsw=''
                     match_data.append([today.strftime('%m/%d/%Y'), tourney_round_name, bestof, player1_list[n], player2_list[n], winner_atp, loser_atp, '', '']+clean_score+['', '', '', oddsw, oddsl])
