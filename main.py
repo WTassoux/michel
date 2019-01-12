@@ -20,9 +20,17 @@ start_time = time.time()
 # First element is the start date for the scraping
 # Second element is the end date for the scraping
 # Date are inclusive
-start_scraping_date=datetime(2019,1,9)
-end_scraping_date=datetime(2019,1,9)
-dataScrapper(start_scraping_date,end_scraping_date)
+
+# Variables for manual scraping
+scrap_today=datetime(2019,1,13)
+scrap_next_day=datetime(2019,1,14)
+
+# we usually only want the next day data
+day = date.today()
+#scrap_today=datetime.combine(day, datetime.min.time())
+#scrap_next_day=scrap_today+timedelta(days=1)
+print("We scrap the following date range: "+scrap_today.strftime('%Y-%m-%d')+" - "+scrap_next_day.strftime('%Y-%m-%d'))
+dataScrapper(scrap_today,scrap_next_day)
 
 """
 
@@ -138,9 +146,9 @@ duration_val_matches=50
 # Loop to iteratively set the correct date for the test
 # The daterange function stops the day before the end date
 #start_testing_date=datetime(2017,12,31)
-start_testing_date=datetime(2018,12,31)
+start_testing_date=datetime(2018,12,29)
 #end_testing_date=datetime(2018,1,2)
-end_testing_date=datetime(2019,1,1)
+end_testing_date=datetime(2019,1,13)
 
 
 result_set=[]
@@ -226,8 +234,8 @@ conf=conf.sort_values("confidence",ascending=False)
 conf=conf.reset_index(drop=True)
 #print(conf)
 conf.to_csv("result_data.csv",index=False)
-
 """
+
 #conf=pandas.read_csv("result_data.csv")
 #ROI = profitComputation(1,conf)
 #print("ROI for the dataset: "+str(ROI)+"%")

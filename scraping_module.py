@@ -86,8 +86,8 @@ def convertRound(depth,size):
     if levenshtein_distance(depth,depth_list[-3])<=2 or depth=='QF':
         return depth_list[-3]
     depth_num=depth[-2:]
-    i=real_depth/int(depth_num)
-    return depth_list[int(i)]
+    i=real_size/int(depth_num)
+    return depth_list[int(i-1)]
             
 
 def array2csv(array, filename):
@@ -238,7 +238,7 @@ def scrape_year(year,start_scraping_date,end_scraping_date):
         tourney_startdate_url_parsed=tourney_startdate_url_parsed[0].strip()
         tourney_startdate=datetime.strptime(tourney_startdate_url_parsed, '%Y.%m.%d')
         # We assume a tournament can only be 15 days in length so we see if we are in the startdate + 15 window
-        tourney_enddate=tourney_startdate+timedelta(days=15)
+        tourney_enddate=tourney_startdate+timedelta(days=10)
         # the official startdate does not take into account the qualifying rounds which are usually 2-3 days before
         tourney_startdate=tourney_startdate+timedelta(days=-3)
         if(tourney_enddate<start_scraping_date or tourney_startdate>end_scraping_date):
@@ -344,7 +344,6 @@ def scrape_tourney(tourney_url_suffix,start_scraping_date,end_scraping_date):
     tourney_dates_xpath = "//ul[@data-value='matchdate']/li[@data-value]/text()"
     day_count_parsed = xpath_parse(tourney_tree, tourney_dates_xpath)
     day_match_count = len(day_count_parsed)
-
     # we see if there is a need to scrap the planned matches as well
     # the scraping will occur at the end of this function
     # even if the date stops at today, we still retrieve the planned matches as some matches may not be finished yet in some timezones
@@ -383,7 +382,6 @@ def scrape_tourney(tourney_url_suffix,start_scraping_date,end_scraping_date):
             # We check that we are in the scraping window
             if(today<start_scraping_date or today>end_scraping_date):
                 continue
-
             # Odds trees (we gather yesterday, the current day and tomorrow to ensure full coverage with the timezones
             # We assume here we gather dates that can be retrieved (i.e. within 30 days of the present) - so we will have the correct date for sure
             yesterday = today+timedelta(days=-1)
@@ -407,7 +405,6 @@ def scrape_tourney(tourney_url_suffix,start_scraping_date,end_scraping_date):
                 # Winner
                 winner_name_xpath = "//table[contains(@class, 'day-table')]/tbody[" + str(i + 1) + "]/tr[" + str(j + 1) + "]/td[contains(@class, 'day-table-name')][1]/a/text()"
                 winner_name_parsed = xpath_parse(tourney_day_tree, winner_name_xpath)
-
                 winner_url_xpath = "//table[contains(@class, 'day-table')]/tbody[" + str(i + 1) + "]/tr[" + str(j + 1) + "]/td[contains(@class, 'day-table-name')][1]/a/@href"
                 winner_url_parsed = xpath_parse(tourney_day_tree, winner_url_xpath)
 
@@ -543,13 +540,15 @@ def scrape_tourney(tourney_url_suffix,start_scraping_date,end_scraping_date):
                     for sets in match_score_split:
                         if len(sets) == 2:
                             if sets[0] > sets[1]:
-                                winner_sets_won += 1
+                                if sets[0]=='6' or sets[0]=='7':
+                                    winner_sets_won += 1
                                 winner_games_won += int(sets[0])
                                 loser_games_won += int(sets[1])
                                 if sets == '76': winner_tiebreaks_won += 1
 
                             elif sets[0] < sets[1]:
-                                loser_sets_won += 1
+                                if sets[1]=='6' or sets[1]=='7':
+                                    loser_sets_won += 1
                                 winner_games_won += int(sets[0])
                                 loser_games_won += int(sets[1])
                                 if sets == '67': loser_tiebreaks_won += 1
@@ -667,20 +666,17 @@ def scrape_tourney(tourney_url_suffix,start_scraping_date,end_scraping_date):
 
                 # Store data
                 match_data.append([today.strftime('%m/%d/%Y'), tourney_round_name, bestof, winner_name, loser_name, winner_atp, loser_atp, '', '']+clean_score+[winner_sets_won, loser_sets_won, outcome, oddsw, oddsl])
+
                 #time.sleep(.100)       
-
-
     if retrieve_planned_matches:
         # Retrieve future matches and matches that have not finished yet
-        tourney_url.replace("results","daily-schedule")
+        tourney_url=tourney_url.replace("results","daily-schedule")
         tourney_tree = html_parse_tree(tourney_url)
-
         tourney_days_xpath = "//ul[@data-value='day']/li/@data-value"
         days_parsed = xpath_parse(tourney_tree, tourney_days_xpath)
-
         # we loop on the days planned (could be max 2 days)
         for z in xrange(0,len(days_parsed)):
-            day_url="https://www.atptour.com/en/scores/current/sydney/338/daily-schedule?day="+days_parsed[z]
+            day_url=tourney_url+"?day="+days_parsed[z]
             day_tree = html_parse_tree(day_url)
             
             date_xpath = "//h3[@class='day-table-date']/text()"
@@ -690,6 +686,12 @@ def scrape_tourney(tourney_url_suffix,start_scraping_date,end_scraping_date):
             if(today<start_scraping_date or today>end_scraping_date):
                 continue
             # we prepare the data that will be required
+            # Odds trees (we gather the current day and tomorrow to ensure full coverage with the timezones
+            # We assume here we gather dates that can be retrieved (i.e. within 30 days of the present) - so we will have the correct date for sure
+            tomorrow = today+timedelta(days=+1)
+            odds_tod = getDailyOdds(today.strftime('%Y.%m.%d'))
+            odds_tom = getDailyOdds(tomorrow.strftime('%Y.%m.%d'))
+            
             # round
             round_list=regex_strip_array(xpath_parse(day_tree,"//td[@class='day-table-round']/text()"))
             # best of - we use the type of tournament for that
@@ -745,59 +747,57 @@ def scrape_tourney(tourney_url_suffix,start_scraping_date,end_scraping_date):
             clean_score=[]
             for p in range(len(clean_score),10):
                             clean_score.append('')
-            match_data=[]
-            print(label_list)
 
             # we loop on the lists to build the match_data list
             for n in xrange(0,len(player1_list)):
                 # Match type - to know whether it is ATP singles or WTA
-                type_list=xpath_parse(day_tree,"(//td[@class='day-table-button'])["+(n+1)+"]/a/text()")
+                type_list=xpath_parse(day_tree,"(//td[@class='day-table-button'])["+str(n+1)+"]/a/text()")
                 # Label
-                label_list=regex_strip_array(xpath_parse(day_tree,"(//td[@class='day-table-vertical-label'])["+(n+1)+"]/span/text()"))
-
-                if type_list[0]=="H2H" and label_list[0]=="VS":
-                    # Players' ATP ranking
-                    winner_atp=getRanking(player1_list[n],today.strftime("%Y.%m.%d"),url_prefix+winner_url.replace('overview','rankings-history'),greedy)
-                    loser_atp=getRanking(player2_list[n],today.strftime("%Y.%m.%d"),url_prefix+loser_url.replace('overview','rankings-history'),greedy)
-                    # Let's gather the odds for the match
-                    odds_found=False        
-                    # We use the levenshtein distance to measure similarity between names (max 3 characters can be different)
-                    threshold=4
-                    win_odds=player1_list[n]
-                    los_odds=player2_list[n]
-                    # We try yesterday's odds first
-                    for a in xrange(0,len(odds_tod)):
-                    # We try today's odds
-                        if not(odds_found):
-                            for a in xrange(0,len(odds_tod)):
-                                if levenshtein_distance(odds_tod[a][0],win_odds)<threshold and levenshtein_distance(odds_tod[a][1],los_odds)<threshold:
-                                    oddsw=odds_tod[a][2]
-                                    oddsl=odds_tod[a][3]
-                                    odds_found=True
-                                    break
-                                elif levenshtein_distance(odds_tod[a][1],win_odds)<threshold and levenshtein_distance(odds_tod[a][0],los_odds)<threshold:
-                                    oddsw=odds_tod[a][3]
-                                    oddsl=odds_tod[a][2]
-                                    odds_found=True
-                                    break
-                        # We try tomorrow's odds if still no luck
-                        if not(odds_found):
-                            for a in xrange(0,len(odds_tom)):
-                                if levenshtein_distance(odds_tom[a][0],win_odds)<threshold and levenshtein_distance(odds_tom[a][1],los_odds)<threshold:
-                                    oddsw=odds_tom[a][2]
-                                    oddsl=odds_tom[a][3]
-                                    odds_found=True
-                                    break
-                                elif levenshtein_distance(odds_tom[a][1],win_odds)<threshold and levenshtein_distance(odds_tom[a][0],los_odds)<threshold:
-                                    oddsw=odds_tom[a][3]
-                                    oddsl=odds_tom[a][2]
-                                    odds_found=True
-                                    break
-                        if not(odds_found):
-                            print('Odds not found for match :'+win_odds+' - '+los_odds+' on date: '+today.strftime('%Y.%m.%d')+'\nurl:https://www.oddsportal.com/matches/tennis/'+today.strftime('%Y%m%d')+'/')
-                            oddsl=''
-                            oddsw=''
-                    match_data.append([today.strftime('%m/%d/%Y'), tourney_round_name, bestof, player1_list[n], player2_list[n], winner_atp, loser_atp, '', '']+clean_score+['', '', '', oddsw, oddsl])
+                label_list=regex_strip_array(xpath_parse(day_tree,"(//td[@class='day-table-vertical-label'])["+str(n+1)+"]/span/text()"))
+                if len(type_list)==1 and label_list[0]=="VS":
+                    if type_list[0]=='H2H':
+                        # Players' ATP ranking
+                        winner_atp=getRanking(player1_list[n],today.strftime("%Y.%m.%d"),url_prefix+player1url_list[n].replace('overview','rankings-history'),greedy)
+                        loser_atp=getRanking(player2_list[n],today.strftime("%Y.%m.%d"),url_prefix+player2url_list[n].replace('overview','rankings-history'),greedy)
+                        # Let's gather the odds for the match
+                        odds_found=False        
+                        # We use the levenshtein distance to measure similarity between names (max 3 characters can be different)
+                        threshold=4
+                        win_odds=player1_list[n]
+                        los_odds=player2_list[n]
+                        # We try yesterday's odds first
+                        for a in xrange(0,len(odds_tod)):
+                        # We try today's odds
+                            if not(odds_found):
+                                for a in xrange(0,len(odds_tod)):
+                                    if levenshtein_distance(odds_tod[a][0],win_odds)<threshold and levenshtein_distance(odds_tod[a][1],los_odds)<threshold:
+                                        oddsw=odds_tod[a][2]
+                                        oddsl=odds_tod[a][3]
+                                        odds_found=True
+                                        break
+                                    elif levenshtein_distance(odds_tod[a][1],win_odds)<threshold and levenshtein_distance(odds_tod[a][0],los_odds)<threshold:
+                                        oddsw=odds_tod[a][3]
+                                        oddsl=odds_tod[a][2]
+                                        odds_found=True
+                                        break
+                            # We try tomorrow's odds if still no luck
+                            if not(odds_found):
+                                for a in xrange(0,len(odds_tom)):
+                                    if levenshtein_distance(odds_tom[a][0],win_odds)<threshold and levenshtein_distance(odds_tom[a][1],los_odds)<threshold:
+                                        oddsw=odds_tom[a][2]
+                                        oddsl=odds_tom[a][3]
+                                        odds_found=True
+                                        break
+                                    elif levenshtein_distance(odds_tom[a][1],win_odds)<threshold and levenshtein_distance(odds_tom[a][0],los_odds)<threshold:
+                                        oddsw=odds_tom[a][3]
+                                        oddsl=odds_tom[a][2]
+                                        odds_found=True
+                                        break
+                            if not(odds_found):
+                                print('Odds not found for match :'+win_odds+' - '+los_odds+' on date: '+today.strftime('%Y.%m.%d')+'\nurl:https://www.oddsportal.com/matches/tennis/'+today.strftime('%Y%m%d')+'/')
+                                oddsl=''
+                                oddsw=''
+                        match_data.append([today.strftime('%m/%d/%Y'), round_list[n], bestof, player1_list[n], player2_list[n], winner_atp, loser_atp, '', '']+clean_score+['', '', '', oddsw, oddsl])
 
     output = [match_data, match_urls]
     return output
