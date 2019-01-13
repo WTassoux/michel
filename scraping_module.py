@@ -86,6 +86,8 @@ def convertRound(depth,size):
     if levenshtein_distance(depth,depth_list[-3])<=2 or depth=='QF':
         return depth_list[-3]
     depth_num=depth[-2:]
+    if depth_num=='Rd':
+        return depth_num.replace('Rd','Round')
     i=real_size/int(depth_num)
     return depth_list[int(i-1)]
             
@@ -210,11 +212,16 @@ def getDailyOdds(date):
     return odds_table
 
 
-def scrape_year(year,start_scraping_date,end_scraping_date):
+def scrape_year(year,start_scraping_date,end_scraping_date,force_scrap):
     # Setup
     year_url = "http://www.atpworldtour.com/en/scores/results-archive?year=" + year
     url_prefix = "http://www.atpworldtour.com"
 
+    # We prepare the force list of tourney names
+    force_list_names=[]
+    for i in xrange(0,len(force_scrap)):
+        force_list_names.append(force_scrap[i][0])
+    
     # HTML tree
     year_tree = html_parse_tree(year_url)
 
@@ -238,17 +245,23 @@ def scrape_year(year,start_scraping_date,end_scraping_date):
         tourney_startdate_url_parsed=tourney_startdate_url_parsed[0].strip()
         tourney_startdate=datetime.strptime(tourney_startdate_url_parsed, '%Y.%m.%d')
         # We assume a tournament can only be 15 days in length so we see if we are in the startdate + 15 window
-        tourney_enddate=tourney_startdate+timedelta(days=10)
+        tourney_enddate=tourney_startdate+timedelta(days=15)
         # the official startdate does not take into account the qualifying rounds which are usually 2-3 days before
         tourney_startdate=tourney_startdate+timedelta(days=-3)
-        if(tourney_enddate<start_scraping_date or tourney_startdate>end_scraping_date):
-            continue
         
         # Assign variables
         tourney_details_url_xpath = "//tr[contains(@class, 'tourney-result')][" + str(i + 1) + "]/td[8]/a/@href"
         tourney_details_url_parsed = xpath_parse(year_tree, tourney_details_url_xpath)
         #print(tourney_details_url_parsed)
-
+        if tourney_name in force_list_names:
+            for y in xrange(0,len(force_scrap)):
+                if tourney_name == force_scrap[y][0]:
+                    tourney_details_url_parsed.append(force_scrap[y][1])
+                    
+        if(tourney_enddate<start_scraping_date or tourney_startdate>end_scraping_date):
+            continue
+        if(force_list_names!=[] and tourney_name not in force_list_names):
+            continue
         tourney_location_xpath = "//tr[contains(@class, 'tourney-result')][" + str(i + 1) + "]/td[3]/span[contains(@class, 'tourney-location')]/text()"
         tourney_location =xpath_parse(year_tree, tourney_location_xpath)
         tourney_location=tourney_location[0].strip()
@@ -322,7 +335,6 @@ def scrape_year(year,start_scraping_date,end_scraping_date):
 def scrape_tourney(tourney_url_suffix,start_scraping_date,end_scraping_date):
     url_prefix = "http://www.atpworldtour.com"
     tourney_url = url_prefix + tourney_url_suffix
-
     url_split = tourney_url.split("/")
     tourney_slug = url_split[6]
     tourney_year = url_split[8]
@@ -348,10 +360,12 @@ def scrape_tourney(tourney_url_suffix,start_scraping_date,end_scraping_date):
     # the scraping will occur at the end of this function
     # even if the date stops at today, we still retrieve the planned matches as some matches may not be finished yet in some timezones
     retrieve_planned_matches=False
-    last_parsed_day=datetime.strptime(day_count_parsed[0], '%Y.%m.%d')
-    if last_parsed_day<=end_scraping_date:
+    if day_match_count==0:
         retrieve_planned_matches=True
-
+    else:
+        last_parsed_day=datetime.strptime(day_count_parsed[0], '%Y.%m.%d')
+        if last_parsed_day<=end_scraping_date:
+            retrieve_planned_matches=True
     # check for the case were there are no dates available
     if(day_match_count==0):
         day_match_count=1
@@ -810,7 +824,7 @@ def scrape_tourney(tourney_url_suffix,start_scraping_date,end_scraping_date):
 # the greedy mode must be used with caution! For speed purposes, it does not check whether the entry already exists
 def getRanking(name,date,url,greedy):
     # we get the previous monday
-    current_date=datetime.strptime(date,"%Y.%m.%d")
+    current_date=datetime.strptime(date,"%Y.%m.%d")+relativedelta(days=-1)
     previous_monday = current_date + relativedelta(weekday=MO(-1))
     #print("Previous monday was: "+previous_monday.strftime("%Y.%m.%d"))
     partial_row=name+","+previous_monday.strftime("%Y.%m.%d")
@@ -863,7 +877,7 @@ def getRanking(name,date,url,greedy):
 # Command line input
 #start_year = str(sys.argv[1])
 #end_year = str(sys.argv[2])
-def dataScrapper(start_scraping_date,end_scraping_date):
+def dataScrapper(start_scraping_date,end_scraping_date,force_scrap):
     start_year=start_scraping_date.year
     end_year=end_scraping_date.year
     # STEP 1: Scrape year page
@@ -872,7 +886,7 @@ def dataScrapper(start_scraping_date,end_scraping_date):
     for h in xrange(int(start_year), int(end_year) + 2):
 
         year = str(h)
-        scrape_year_output = scrape_year(year,start_scraping_date,end_scraping_date)
+        scrape_year_output = scrape_year(year,start_scraping_date,end_scraping_date,force_scrap)
         tourney_data_scrape = scrape_year_output[0]
         tourney_urls_scrape = scrape_year_output[1]
         print('')
