@@ -159,10 +159,10 @@ def assessStrategyGlobal(test_beginning_match,
                                  "correct"+model_name:right,
                                  "confidence"+model_name:confidence,
                                  "PSW":odds.PSW.values,
+                                 "PSL":odds.PSL.values,
                                  "Confidence_Player1_Wins"+model_name:prediction_test_winner,
                                  "Confidence_Player2_Wins" + model_name: prediction_test_loser})
     confidenceTest=confidenceTest.sort_values("confidence"+model_name,ascending=False).reset_index(drop=True)
-    
     return confidenceTest
 
 def vibratingAssessStrategyGlobal(test_match, dur_train, duration_val_matches, delta, xgb_params, nb_players, nb_tournaments, xtrain, data):
@@ -195,10 +195,10 @@ def vibratingAssessStrategyGlobal(test_match, dur_train, duration_val_matches, d
     confTest4.columns = ["Confidence_Player1_Wins4", "Confidence_Player2_Wins4", "PSW", "confidence4", "correct4", "match_index"]
     """
     if (type(confTest1)!=int)&(type(confTest2)!=int)&(type(confTest3)!=int)&(type(confTest4)!=int)&(type(confTest5)!=int):
-        c=confTest1.merge(confTest2,on=["match_index","PSW"])
-        c=c.merge(confTest3,on=["match_index","PSW"])
-        c=c.merge(confTest4,on=["match_index","PSW"])
-        c=c.merge(confTest5,on=["match_index","PSW"])
+        c=confTest1.merge(confTest2,on=["match_index","PSW","PSL"])
+        c=c.merge(confTest3,on=["match_index","PSW","PSL"])
+        c=c.merge(confTest4,on=["match_index","PSW","PSL"])
+        c=c.merge(confTest5,on=["match_index","PSW","PSL"])
         c=pd.Series(list(zip(c.correct1,c.correct2,c.correct3,c.correct4,c.correct5,
                              c.confidence1,c.confidence2,c.confidence3,
                              c.confidence4,c.confidence5,c.Confidence_Player1_Wins1,
@@ -207,8 +207,8 @@ def vibratingAssessStrategyGlobal(test_match, dur_train, duration_val_matches, d
                              c.Confidence_Player2_Wins2,c.Confidence_Player2_Wins3,
                              c.Confidence_Player2_Wins4,c.Confidence_Player2_Wins5)))
         c=pd.DataFrame.from_records(list(c.apply(mer)))
-        conf=pd.concat([confTest1[["match_index","PSW"]],c],1)
-        conf.columns=["match_index","Pinnacle_Odds","correct_prediction","confidence","Confidence_Player1_Wins","Confidence_Player2_Wins"]
+        conf=pd.concat([confTest1[["match_index","PSW","PSL"]],c],1)
+        conf.columns=["match_index","Player1 Odds","Player2 Odds","correct_prediction","confidence","Confidence_Player1_Wins","Confidence_Player2_Wins"]
     else:
         conf=0
 

@@ -41,9 +41,9 @@ if force_scrap!=[]:
     for i in xrange(0,len(force_scrap)):
         print('Name: '+force_scrap[i][0])
 dataScrapper(scrap_today,scrap_next_day,force_scrap)
+
 """
-
-
+"""
 ###############################################################
 # We now clean the data and keep only the hyperparameters we need
 df=dataCleaner()
@@ -55,13 +55,15 @@ df=dataCleaner()
 #df=glickoRanking(df, 1, 0.5)
 df=compute_elo_rankings(df)
 
-
+### Let's remove some unwanted matches, such as qualifying rounds - we use those only for a more accurate ELO ranking computation
+df=[df["Round"].str.contains("Qualifying")==True]
 
 
 df.to_csv('dataframe_output.csv', sep=',', encoding='utf-8',index=False)
 # Percentage of matches with correct prediction from the rankings
 print("Accuracy of ATP ranking for match outcome prediction: "+str(testRankingAccuracy(df,'WRank','LRank')))
 print("Accuracy of ELO ranking for match outcome prediction: "+str(testRankingAccuracy(df,'elo_loser','elo_winner')))
+
 
 
 
@@ -126,7 +128,7 @@ features = pandas.concat([features_odds,
                   features_recent],1)
 
 features.to_csv("completed_dataframe.csv",index=False)
-
+"""
 
 ######################################
 # Model computation
