@@ -87,7 +87,7 @@ def convertRound(depth,size):
         return depth_list[-3]
     depth_num=depth[-2:]
     if depth_num=='Rd':
-        return depth_num.replace('Rd','Round')
+        return depth.replace('Rd','Round')
     i=real_size/int(depth_num)
     return depth_list[int(i-1)]
             
@@ -646,32 +646,32 @@ def scrape_tourney(tourney_url_suffix,start_scraping_date,end_scraping_date):
                         oddsl=odds_yes[a][2]
                         odds_found=True
                         break
-                # We try today's odds if still no luck
-                if not(odds_found):
-                    for a in xrange(0,len(odds_tod)):
-                        if levenshtein_distance(odds_tod[a][0],win_odds)<threshold and levenshtein_distance(odds_tod[a][1],los_odds)<threshold:
-                            oddsw=odds_tod[a][2]
-                            oddsl=odds_tod[a][3]
-                            odds_found=True
-                            break
-                        elif levenshtein_distance(odds_tod[a][1],win_odds)<threshold and levenshtein_distance(odds_tod[a][0],los_odds)<threshold:
-                            oddsw=odds_tod[a][3]
-                            oddsl=odds_tod[a][2]
-                            odds_found=True
-                            break
-                # We try tomorrow's odds if still no luck
-                if not(odds_found):
-                    for a in xrange(0,len(odds_tom)):
-                        if levenshtein_distance(odds_tom[a][0],win_odds)<threshold and levenshtein_distance(odds_tom[a][1],los_odds)<threshold:
-                            oddsw=odds_tom[a][2]
-                            oddsl=odds_tom[a][3]
-                            odds_found=True
-                            break
-                        elif levenshtein_distance(odds_tom[a][1],win_odds)<threshold and levenshtein_distance(odds_tom[a][0],los_odds)<threshold:
-                            oddsw=odds_tom[a][3]
-                            oddsl=odds_tom[a][2]
-                            odds_found=True
-                            break
+                    # We try today's odds if still no luck
+                    if not(odds_found):
+                        for a in xrange(0,len(odds_tod)):
+                            if levenshtein_distance(odds_tod[a][0],win_odds)<threshold and levenshtein_distance(odds_tod[a][1],los_odds)<threshold:
+                                oddsw=odds_tod[a][2]
+                                oddsl=odds_tod[a][3]
+                                odds_found=True
+                                break
+                            elif levenshtein_distance(odds_tod[a][1],win_odds)<threshold and levenshtein_distance(odds_tod[a][0],los_odds)<threshold:
+                                oddsw=odds_tod[a][3]
+                                oddsl=odds_tod[a][2]
+                                odds_found=True
+                                break
+                    # We try tomorrow's odds if still no luck
+                    if not(odds_found):
+                        for a in xrange(0,len(odds_tom)):
+                            if levenshtein_distance(odds_tom[a][0],win_odds)<threshold and levenshtein_distance(odds_tom[a][1],los_odds)<threshold:
+                                oddsw=odds_tom[a][2]
+                                oddsl=odds_tom[a][3]
+                                odds_found=True
+                                break
+                            elif levenshtein_distance(odds_tom[a][1],win_odds)<threshold and levenshtein_distance(odds_tom[a][0],los_odds)<threshold:
+                                oddsw=odds_tom[a][3]
+                                oddsl=odds_tom[a][2]
+                                odds_found=True
+                                break
                 if not(odds_found):
                     print('Odds not found for match :'+win_odds+' - '+los_odds+' on date: '+today.strftime('%Y.%m.%d')+'\nurl:https://www.oddsportal.com/matches/tennis/'+today.strftime('%Y%m%d')+'/')
                     oddsl=''
@@ -807,10 +807,10 @@ def scrape_tourney(tourney_url_suffix,start_scraping_date,end_scraping_date):
                                         oddsl=odds_tom[a][2]
                                         odds_found=True
                                         break
-                            if not(odds_found):
-                                print('Odds not found for match :'+win_odds+' - '+los_odds+' on date: '+today.strftime('%Y.%m.%d')+'\nurl:https://www.oddsportal.com/matches/tennis/'+today.strftime('%Y%m%d')+'/')
-                                oddsl=''
-                                oddsw=''
+                        if not(odds_found):
+                            print('Odds not found for match :'+win_odds+' - '+los_odds+' on date: '+today.strftime('%Y.%m.%d')+'\nurl:https://www.oddsportal.com/matches/tennis/'+today.strftime('%Y%m%d')+'/')
+                            oddsl=''
+                            oddsw=''
                         match_data.append([today.strftime('%m/%d/%Y'), round_list[n], bestof, player1_list[n], player2_list[n], winner_atp, loser_atp, '', '']+clean_score+['', '', '', oddsw, oddsl])
 
     output = [match_data, match_urls]

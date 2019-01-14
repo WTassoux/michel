@@ -22,17 +22,18 @@ start_time = time.time()
 # Date are inclusive
 
 # Variables for manual scraping
-#scrap_today=datetime(2019,1,13)
-#scrap_next_day=datetime(2019,1,14)
+scrap_today=datetime(2019,1,15)
+scrap_next_day=datetime(2019,1,15)
 
 # we usually only want the next day data
 day = date.today()
-scrap_today=datetime.combine(day, datetime.min.time())
-scrap_next_day=scrap_today+timedelta(days=1)
+#scrap_today=datetime.combine(day, datetime.min.time())
+#scrap_next_day=scrap_today+timedelta(days=1)
 
 # For ce the scrap for a specific url only - only works for ATP World Tour website!
 # eg. of input url: https://www.atptour.com/en/scores/current/australian-open/580/results
-force_scrap=[['Australian Open','/en/scores/current/australian-open/580/results']]
+#force_scrap=[['Australian Open','/en/scores/current/australian-open/580/results']]
+force_scrap=[]
 
 print("We scrap the following date range: "+scrap_today.strftime('%Y-%m-%d')+" - "+scrap_next_day.strftime('%Y-%m-%d'))
 
@@ -41,9 +42,9 @@ if force_scrap!=[]:
     for i in xrange(0,len(force_scrap)):
         print('Name: '+force_scrap[i][0])
 dataScrapper(scrap_today,scrap_next_day,force_scrap)
+"""
 
-"""
-"""
+
 ###############################################################
 # We now clean the data and keep only the hyperparameters we need
 df=dataCleaner()
@@ -56,7 +57,7 @@ df=dataCleaner()
 df=compute_elo_rankings(df)
 
 ### Let's remove some unwanted matches, such as qualifying rounds - we use those only for a more accurate ELO ranking computation
-df=[df["Round"].str.contains("Qualifying")==True]
+df=df[~df.Round.str.contains("Qualifying")]
 
 
 df.to_csv('dataframe_output.csv', sep=',', encoding='utf-8',index=False)
@@ -65,7 +66,7 @@ print("Accuracy of ATP ranking for match outcome prediction: "+str(testRankingAc
 print("Accuracy of ELO ranking for match outcome prediction: "+str(testRankingAccuracy(df,'elo_loser','elo_winner')))
 
 
-
+"""
 
 #############################################
 # Generation of additional hyper parameters
@@ -129,7 +130,7 @@ features = pandas.concat([features_odds,
 
 features.to_csv("completed_dataframe.csv",index=False)
 """
-
+"""
 ######################################
 # Model computation
 # We use only a training set and do not use any validation set
@@ -246,7 +247,7 @@ conf=conf.sort_values("confidence",ascending=False)
 conf=conf.reset_index(drop=True)
 #print(conf)
 conf.to_csv("result_data.csv",index=False)
-
+"""
 
 #conf=pandas.read_csv("result_data.csv")
 #ROI = profitComputation(1,conf)
