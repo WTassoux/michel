@@ -15,20 +15,20 @@ from scraping_module import *
 # This variable is to measure how long it took to execute the code
 start_time = time.time()
 
-"""
+
 ########################################################
 # First element is the start date for the scraping
 # Second element is the end date for the scraping
 # Date are inclusive
-
+"""
 # Variables for manual scraping
-scrap_today=datetime(2019,1,15)
-scrap_next_day=datetime(2019,1,15)
+#scrap_today=datetime(2019,1,15)
+#scrap_next_day=datetime(2019,1,15)
 
 # we usually only want the next day data
 day = date.today()
-#scrap_today=datetime.combine(day, datetime.min.time())
-#scrap_next_day=scrap_today+timedelta(days=1)
+scrap_today=datetime.combine(day, datetime.min.time())
+scrap_next_day=scrap_today+timedelta(days=1)
 
 # For ce the scrap for a specific url only - only works for ATP World Tour website!
 # eg. of input url: https://www.atptour.com/en/scores/current/australian-open/580/results
@@ -42,8 +42,8 @@ if force_scrap!=[]:
     for i in xrange(0,len(force_scrap)):
         print('Name: '+force_scrap[i][0])
 dataScrapper(scrap_today,scrap_next_day,force_scrap)
-"""
 
+"""
 
 ###############################################################
 # We now clean the data and keep only the hyperparameters we need
@@ -66,8 +66,8 @@ print("Accuracy of ATP ranking for match outcome prediction: "+str(testRankingAc
 print("Accuracy of ELO ranking for match outcome prediction: "+str(testRankingAccuracy(df,'elo_loser','elo_winner')))
 
 
-"""
 
+"""
 #############################################
 # Generation of additional hyper parameters
 df=pandas.read_csv('dataframe_output.csv')
@@ -247,8 +247,8 @@ conf=conf.sort_values("confidence",ascending=False)
 conf=conf.reset_index(drop=True)
 #print(conf)
 conf.to_csv("result_data.csv",index=False)
-"""
 
+"""
 #conf=pandas.read_csv("result_data.csv")
 #ROI = profitComputation(1,conf)
 #print("ROI for the dataset: "+str(ROI)+"%")
