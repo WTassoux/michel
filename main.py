@@ -23,7 +23,7 @@ from scraping_module import *
 start_time = time.time()
 
 
-if "-c" in sys.argv:
+if "-s" in sys.argv:
     ########################################################
     # First element is the start date for the scraping
     # Second element is the end date for the scraping
@@ -167,7 +167,7 @@ if "-c" in sys.argv:
     # we usually only want the next day data
     day = date.today()
     start_testing_date=datetime.combine(day, datetime.min.time())
-    end_testing_date=scrap_today+timedelta(days=1)
+    end_testing_date=start_testing_date+timedelta(days=2)
     
     #start_testing_date=datetime(2019,1,14)
     #end_testing_date=datetime(2019,1,15)
@@ -252,7 +252,8 @@ if "-c" in sys.argv:
     conf=conf.merge(dates,on="match_index")
     conf=conf.merge(player1,on="match_index")
     conf=conf.merge(player2,on="match_index")
-    conf=conf.sort_values("confidence",ascending=False)
+    #conf=conf.sort_values("confidence",ascending=False)
+    conf=conf.sort_values("date",ascending=False)
     conf=conf.reset_index(drop=True)
     #print(conf)
     conf.to_csv("result_data.csv",index=False)
