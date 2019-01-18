@@ -82,11 +82,13 @@ if "-df" in sys.argv:
     #beg = datetime(2008,1,1) 
     beg = df.Date.iloc[0]
     end = df.Date.iloc[-1]
-    indices = df[(df.Date>beg)&(df.Date<=end)].index
+
+    indices = df[(df.Date>=beg)&(df.Date<=end)].index
     odds = df[["PSW","PSL"]]
 
     # Param based on past data (for a match, will look at the past x days except for the player where we check only the past 5 days)
     x = 150
+    print(indices)
     print("### Computing basic player data ###")
     features_player  = features_past_generation(features_player_creation,5,"playerft5",df,indices)
     print("### Computing basic match data ###")
@@ -166,11 +168,11 @@ if "-c" in sys.argv:
     # The daterange function stops the day before the end date
     # we usually only want the next day data
     day = date.today()
-    start_testing_date=datetime.combine(day, datetime.min.time())
-    end_testing_date=start_testing_date+timedelta(days=2)
+    #start_testing_date=datetime.combine(day, datetime.min.time())
+    #end_testing_date=start_testing_date+timedelta(days=1)
     
-    #start_testing_date=datetime(2019,1,14)
-    #end_testing_date=datetime(2019,1,15)
+    start_testing_date=datetime(2019,1,17)
+    end_testing_date=datetime(2019,1,18)
 
 
     result_set=[]
