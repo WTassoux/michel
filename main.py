@@ -88,7 +88,7 @@ if "-df" in sys.argv:
 
     # Param based on past data (for a match, will look at the past x days except for the player where we check only the past 5 days)
     x = 150
-    print(indices)
+    #print(indices)
     print("### Computing basic player data ###")
     features_player  = features_past_generation(features_player_creation,5,"playerft5",df,indices)
     print("### Computing basic match data ###")
@@ -172,7 +172,7 @@ if "-c" in sys.argv:
     #end_testing_date=start_testing_date+timedelta(days=1)
     
     start_testing_date=datetime(2019,1,17)
-    end_testing_date=datetime(2019,1,18)
+    end_testing_date=datetime(2019,1,20)
 
 
     result_set=[]

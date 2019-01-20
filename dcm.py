@@ -53,7 +53,7 @@ def dataCleaner():
     ### The data needs to be cleaned a bit ###
     ##########################################
     # First, we  sort by date
-    dataset=dataset.sort_values("Date")
+    dataset=dataset.sort_values(["Date","Round"],ascending=[True, True],kind='quicksort')
     
     # Some rankings are not provided. In this case we specify Non Ranked people as (NR) as ranked 2000
     dataset["WRank"]=dataset["WRank"].replace("NR",2000)
@@ -290,9 +290,10 @@ def features_recent_creation(outcome,match,past_matches):
     player=match.Winner if outcome==1 else match.Loser
     date=match.Date
     ##### Last matches
-    wins=past_matches[past_matches.Winner==player]    
+    #wins=past_matches[past_matches.Winner==player]    
     losses=past_matches[past_matches.Loser==player]    
-    todo=pandas.concat([wins,losses],0)
+    #todo=pandas.concat([wins,losses],0)
+    todo=past_matches[(past_matches.Loser==player)|(past_matches.Winner==player)] 
     if len(todo)==0:
         return [numpy.nan]*7
     # Days since last match
@@ -300,9 +301,12 @@ def features_recent_creation(outcome,match,past_matches):
     # Was the last match won ?
     wlmw=int(todo.iloc[-1,:].Winner==player)
     # Ranking of the last player played
-    rlpp=todo.iloc[-1,:].WRank
+    if wlmw:
+        rlpp=todo.iloc[-1,:].LRank
+    else:
+        rlpp=todo.iloc[-1,:].WRank
     # Number of sets of last match played
-    nslmp=todo.iloc[-1,:]['Best of']
+    nslmp=todo.iloc[-1,:]['Wsets']+todo.iloc[-1,:]['Lsets']
     # Number of sets won during last match played
     nswlmp=todo.iloc[-1,:]['Wsets'] if wlmw==1 else todo.iloc[-1,:]['Lsets']
     # Injuries - iitp + injury last match
@@ -341,20 +345,29 @@ def features_general_creation(outcome,match,past_matches):
     """
     3 features added by this function:
     1. Difference in ATP rank between the winner and the loser
-    2. Did the best ranked person win?
+    2. Did the best ranked person win? (1 for no, 0 for yes
     3. Best player ranking
     """
     features_general=[]
     ##### Match information extraction (according to the outcome)
     player1=match.Winner if outcome==1 else match.Loser
+        
     rank_player_1=match.WRank if outcome==1 else match.LRank
     rank_player_2=match.LRank if outcome==1 else match.WRank
     
     features_general+=[rank_player_2-rank_player_1,
                        int(rank_player_1>rank_player_2)]
+
     best_ranking_as_winner=past_matches[(past_matches.Winner==player1)].WRank.min()
     best_ranking_as_loser=past_matches[(past_matches.Loser==player1)].LRank.min()
-    best_ranking=min(best_ranking_as_winner,best_ranking_as_loser)
+    if numpy.isnan(best_ranking_as_winner):
+        best_ranking_as_winner=2500
+    if numpy.isnan(best_ranking_as_loser):
+        best_ranking_as_loser=2500
+    #print(best_ranking_as_winner)
+    #print(best_ranking_as_loser)
+    #print(rank_player_1)
+    best_ranking=min(best_ranking_as_winner,best_ranking_as_loser,rank_player_1)
     features_general.append(best_ranking)
     return features_general
 
