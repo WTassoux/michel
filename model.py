@@ -184,6 +184,8 @@ def vibratingAssessStrategyGlobal(test_match, dur_train, duration_val_matches, d
     confTest3=assessStrategyGlobal(test_match, dur_train + step, duration_val_matches - step, delta, xgb_params, nb_players, nb_tournaments, xtrain, data, "3")
     confTest4=assessStrategyGlobal(test_match, dur_train - 3 * step, duration_val_matches + 3 * step, delta, xgb_params, nb_players, nb_tournaments, xtrain, data, "4")
     confTest5=assessStrategyGlobal(test_match, dur_train + 3 * step, duration_val_matches - 3 * step, delta, xgb_params, nb_players, nb_tournaments, xtrain, data, "5")
+    confTest6=assessStrategyGlobal(test_match, dur_train + 2 * step, duration_val_matches - 2 * step, delta, xgb_params, nb_players, nb_tournaments, xtrain, data, "6")
+    confTest7=assessStrategyGlobal(test_match, dur_train - 2 * step, duration_val_matches + 2 * step, delta, xgb_params, nb_players, nb_tournaments, xtrain, data, "7")
     """
     confTest5=confTest1.copy()
     confTest5.columns = ["Confidence_Player1_Wins5", "Confidence_Player2_Wins5", "PSW", "confidence5", "correct5", "match_index"]
@@ -194,18 +196,20 @@ def vibratingAssessStrategyGlobal(test_match, dur_train, duration_val_matches, d
     confTest4=confTest1.copy()
     confTest4.columns = ["Confidence_Player1_Wins4", "Confidence_Player2_Wins4", "PSW", "confidence4", "correct4", "match_index"]
     """
-    if (type(confTest1)!=int)&(type(confTest2)!=int)&(type(confTest3)!=int)&(type(confTest4)!=int)&(type(confTest5)!=int):
+    if (type(confTest1)!=int)&(type(confTest2)!=int)&(type(confTest3)!=int)&(type(confTest4)!=int)&(type(confTest5)!=int)&(type(confTest6)!=int)&(type(confTest7)!=int):
         c=confTest1.merge(confTest2,on=["match_index","PSW","PSL"])
         c=c.merge(confTest3,on=["match_index","PSW","PSL"])
         c=c.merge(confTest4,on=["match_index","PSW","PSL"])
         c=c.merge(confTest5,on=["match_index","PSW","PSL"])
-        c=pd.Series(list(zip(c.correct1,c.correct2,c.correct3,c.correct4,c.correct5,
+        c=c.merge(confTest6,on=["match_index","PSW","PSL"])
+        c=c.merge(confTest7,on=["match_index","PSW","PSL"])
+        c=pd.Series(list(zip(c.correct1,c.correct2,c.correct3,c.correct4,c.correct5,c.correct6,c.correct7,
                              c.confidence1,c.confidence2,c.confidence3,
-                             c.confidence4,c.confidence5,c.Confidence_Player1_Wins1,
+                             c.confidence4,c.confidence5,c.confidence6,c.confidence7,c.Confidence_Player1_Wins1,
                              c.Confidence_Player1_Wins2,c.Confidence_Player1_Wins3,
-                             c.Confidence_Player1_Wins4,c.Confidence_Player1_Wins5,c.Confidence_Player2_Wins1,
+                             c.Confidence_Player1_Wins4,c.Confidence_Player1_Wins5,c.Confidence_Player1_Wins6,c.Confidence_Player1_Wins7,c.Confidence_Player2_Wins1,
                              c.Confidence_Player2_Wins2,c.Confidence_Player2_Wins3,
-                             c.Confidence_Player2_Wins4,c.Confidence_Player2_Wins5)))
+                             c.Confidence_Player2_Wins4,c.Confidence_Player2_Wins5,c.Confidence_Player2_Wins6,c.Confidence_Player2_Wins7)))
         c=pd.DataFrame.from_records(list(c.apply(mer)))
         conf=pd.concat([confTest1[["match_index","PSW","PSL"]],c],1)
         conf.columns=["match_index","Player1 Odds","Player2 Odds","correct_prediction","confidence","Confidence_Player1_Wins","Confidence_Player2_Wins"]
@@ -219,11 +223,11 @@ def mer(t):
     # in real situation we would have been right. Otherwise wrong.
     # And the confidence in the chosen outcome is the mean of the confidences of the models
     # we chose this outcome.
-    w=np.array([t[0],t[1],t[2],t[3],t[4]]).astype(bool)
-    conf=np.array([t[5],t[6],t[7],t[8],t[9]])
-    Conf_P1_Wins=np.array([t[10],t[11],t[12],t[13],t[14]])
-    Conf_P2_Wins=np.array([t[15],t[16],t[17],t[18],t[19]])
-    if w.sum()>=3:
+    w=np.array([t[0],t[1],t[2],t[3],t[4],t[5],t[6]]).astype(bool)
+    conf=np.array([t[7],t[8],t[9],t[10],t[11],t[12],t[13]])
+    Conf_P1_Wins=np.array([t[14],t[15],t[16],t[17],t[18],t[19],t[20]])
+    Conf_P2_Wins=np.array([t[21],t[22],t[23],t[24],t[25],t[26],t[27]])
+    if w.sum()>=4:
         return 1,conf[w].mean(),Conf_P1_Wins[w].mean(),Conf_P2_Wins[w].mean()
     else:
         return 0,conf[~w].mean(),Conf_P1_Wins[~w].mean(),Conf_P2_Wins[~w].mean()
