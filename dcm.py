@@ -35,7 +35,7 @@ from sklearn.preprocessing import OneHotEncoder
 # We import all gathered data
 def dataCleaner():
     #filenames=list(glob.glob("Data/[0-9]^4.xls*"))
-    filenames=list(glob.glob("TestData/20*.xls*"))
+    filenames=list(glob.glob("Data/20*.xls*"))
     data=[pandas.read_excel(filename) for filename in filenames]
 
     # Some odds are missing and we need to clean the data
@@ -46,7 +46,7 @@ def dataCleaner():
         data[i]["PSL"]=numpy.nan
     
     #We only keep the following columns: ATP/Location/Tournament/Date/Series/Court/Surface/Round/Bestof/Winner/Loser/WRank/LRank/Wsets/Lsets/Comment/PSW/PSL
-    data=[x[list(x.columns)[:13]+["Wsets","Lsets","Comment"]+["PSW","PSL"]] for x in data]
+    data=[x[list(x.columns)[:13]+["W1","L1","W2","L2","W3","L3","W4","L4","W5","L5","Wsets","Lsets","Comment"]+["PSW","PSL"]] for x in data]
     dataset=pandas.concat(data)
     
     ##########################################
@@ -277,14 +277,15 @@ def features_player_creation(outcome,match,past_matches):
 
 def features_recent_creation(outcome,match,past_matches):
     """
-    7 features added by this function:
+    8 features added by this function:
     1. Days since last match
     2. Was the last match won ?
     3. Ranking of the last player played
     4. Number of sets of last match played
     5. Number of sets won during last match played
     6. Did the player finish the previous match? (did not retire)
-    7. Was the player injued in the specified period?
+    7. Was the player injured in the specified period?
+    8. Fatigue score which is the number of games played in the past 7 days with weighted by the factor 0.75 to the power the number of day
     """
     ##### Match information extraction (according to the outcome)
     player=match.Winner if outcome==1 else match.Loser
@@ -316,7 +317,18 @@ def features_recent_creation(outcome,match,past_matches):
     else:
         ilm=numpy.nan
         iitp=numpy.nan
-    features_recent=[dslm,wlmw,rlpp,nslmp,nswlmp,ilm,iitp]
+    # Fatigue score
+    # list of all matches played in the last 7 days
+    fs=0
+    SevenDaysAgo=datetime.strptime(date, '%Y-%m-%d').date()-timedelta(days=7)
+    fatigueMatches=todo[todo.Date>=str(SevenDaysAgo)]
+    for index, match in fatigueMatches.iterrows():
+        day=(datetime.strptime(date, '%Y-%m-%d').date()-datetime.strptime(match["Date"], '%Y-%m-%d').date()).days
+        coeff=pow(0.75,day-1)
+        fs+=match[13:23].sum(skipna=True)*coeff
+        #fs+=match["W1"]+match["L1"]+match["W2"]+match["L2"]+match["W3"]+match["L3"]+match["W4"]+match["L4"]+match["W5"]+match["L5"]
+    #print(fs)
+    features_recent=[dslm,wlmw,rlpp,nslmp,nswlmp,ilm,iitp,fs]
     return features_recent
 
 def features_h2h_creation(outcome,match,past):

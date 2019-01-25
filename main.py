@@ -90,7 +90,7 @@ if "-df" in sys.argv:
     x = 150
     #print(indices)
     print("### Computing basic player data ###")
-    features_player  = features_past_generation(features_player_creation,5,"playerft5",df,indices)
+    features_player  = features_past_generation(features_player_creation,x,"playerft5",df,indices)
     print("### Computing basic match data ###")
     features_h2h     = features_past_generation(features_h2h_creation,x,"h2hft",df,indices)
     print("### Computing recent data about matches ###")
@@ -171,8 +171,10 @@ if "-c" in sys.argv:
     #start_testing_date=datetime.combine(day, datetime.min.time())
     #end_testing_date=start_testing_date+timedelta(days=1)
     
-    start_testing_date=datetime(2019,1,17)
-    end_testing_date=datetime(2019,1,20)
+    start_testing_date=datetime(2017,12,31)
+    end_testing_date=datetime(2018,11,19)
+    start_testing_date=datetime(2018,11,18)
+    end_testing_date=datetime(2018,11,19)
 
 
     result_set=[]
@@ -203,33 +205,33 @@ if "-c" in sys.argv:
 
         ## Number of tournaments and players encoded directly in one-hot 
         nb_players=50
-        nb_tournaments=5
+        nb_tournaments=10
 
      ## XGB hyper parameters - original
-        #learning_rate=[0.295] 
-        #max_depth=[19]
-        #min_child_weight=[1]
-        #gamma=[0.8]
-        #csbt=[0.5]
-        #lambd=[0]
-        #alpha=[2]
-        #num_rounds=[300]
-        #early_stop=[5]
-        #params=np.array(np.meshgrid(learning_rate,max_depth,min_child_weight,gamma,csbt,lambd,alpha,num_rounds,early_stop)).T.reshape(-1,9).astype(np.float)
-        #xgb_params=params[0]
-
-        ## XGB hyper parameters - modified
-        learning_rate=[0.305] 
-        max_depth=[20]
+        learning_rate=[0.295] 
+        max_depth=[19]
         min_child_weight=[1]
-        gamma=[0]
-        csbt=[1]
+        gamma=[0.8]
+        csbt=[0.5]
         lambd=[0]
-        alpha=[0]
+        alpha=[2]
         num_rounds=[300]
         early_stop=[5]
-        params=numpy.array(numpy.meshgrid(learning_rate,max_depth,min_child_weight,gamma,csbt,lambd,alpha,num_rounds,early_stop)).T.reshape(-1,9).astype(numpy.float)
+        params=np.array(np.meshgrid(learning_rate,max_depth,min_child_weight,gamma,csbt,lambd,alpha,num_rounds,early_stop)).T.reshape(-1,9).astype(np.float)
         xgb_params=params[0]
+
+        ## XGB hyper parameters - modified
+        #learning_rate=[0.305] 
+        #max_depth=[20]
+        #min_child_weight=[1]
+        #gamma=[0]
+        #csbt=[1]
+        #lambd=[0]
+        #alpha=[0]
+        #num_rounds=[300]
+        #early_stop=[5]
+        #params=numpy.array(numpy.meshgrid(learning_rate,max_depth,min_child_weight,gamma,csbt,lambd,alpha,num_rounds,early_stop)).T.reshape(-1,9).astype(numpy.float)
+        #xgb_params=params[0]
 
         ## We predict the confidence in each outcome, "duration_test_matches" matches at each iteration
         print("Matches day: "+str(test_day))
