@@ -35,7 +35,7 @@ from sklearn.preprocessing import OneHotEncoder
 # We import all gathered data
 def dataCleaner():
     #filenames=list(glob.glob("Data/[0-9]^4.xls*"))
-    filenames=list(glob.glob("Data/20*.xls*"))
+    filenames=list(glob.glob("GlickoData/20*.xls*"))
     data=[pandas.read_excel(filename) for filename in filenames]
 
     # Some odds are missing and we need to clean the data
