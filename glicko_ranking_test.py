@@ -3,6 +3,13 @@ import pandas
 import numpy
 from datetime import *
 from dateutil.relativedelta import relativedelta, MO
+import math
+
+def g(phi):
+    return 1/sqrt(1+3*phi_loser^2/math.pi)
+    
+def E(mu, muj, phij):
+    return 1/(1+exp(-g(phij)*(mu-muj)))
 
 
 def glickoRanking(df, period, delta_volatility):
@@ -14,7 +21,6 @@ def glickoRanking(df, period, delta_volatility):
 
     The selected period is 7 days, following the ATP ranking updates, and the update occurs every mondays
     On each pass, all rankings are updated: for player who do not play, their RD increases
-
     
     """
     print("Glicko-2 rankings computing...")
@@ -42,35 +48,48 @@ def glickoRanking(df, period, delta_volatility):
         # First monday of the week is:
         start_week = df_this_week
         end_week = start_week+relativedelta(weeks=1)
+        start_last_week=start_week+relativedelta(weeks=-1)
         # This Week Matches are:
         twm=df[(df.Date>=str(start_week))&(df.Date<str(end_week))]
-        # Now we iterate on each player in twm and compute their new glicko score based on the previous week's result
+        # Last Week Matches are:
+        lwm=df[(df.Date>=str(start_last_week))&(df.Date<str(start_week))]
         
-        # If this player played last week, we compute his new score
-        
-        # If this player didn't play last week and isActive is False, we set isActive to True and do not change the score
-        
-        # If this player didn't play last week and isActive is True, we compute his new score
-        
-        # For all the other players that did not play this week and whose isActive boolean is True, we compute the new score
-        on parcours la liste complete et on compare si le joueur est dans la liste des matchs de cette semaine
-        # increment the week and start again!
+        # Now we iterate on each row in twm and compute the new glicko score based on the previous week's result
+        for i in range(0,len(twm)):
+            player1=twm.iloc[i,:].Winner
+            player2=twm.iloc[i,:].Loser
+            
+            
+            # If this player played last week, we compute his new score
+            lwp=list(pandas.Series(list(lwm.Winner)+list(lwm.Loser)).value_counts().index)
+            if player1 is in lwp:
+                p1Matches=lwp[lwp.Winner==player1|lwp.Loser==player1]
+                r=glickoRK[player1]
+                mu=glickoRD[player1]
+                nu=0
+                wnl=[]
+                for j in range(0,len(p1Matches)):
+                    mu_winner=(glickoRK[wp.iloc[i,:].Winner]-1500)/173.7178
+                    mu_loser=(glickoRK[wp.iloc[i,:].Loser]-1500)/173.7178
+                    phi_winner=glicko_winner[1]/173.7178
+                    phi_loser=glicko_loser[1]/173.7178
+                    if lwp.iloc[i,:].Winner==player1:
+                        nu+=(g(phi_loser)^2)*E(mu_winner,mu_loser,phi_loser)*(1-E(mu_winner,mu_loser,phi_loser))
+                    else:
+                        nu+=(g(phi_winner)^2)*E(mu_loser,mu_winner,phi_winner)*(1-E(mu_loser,mu_winner,phi_winner))
+                nu=1/nu
+                
+            # If this player didn't play last week and isActive is False, we set isActive to True and do not change the score
+            
+            # If this player didn't play last week and isActive is True, we compute his new score
+            
+            # For all the other players that did not play this week and whose isActive boolean is True, we compute the new score
+            #on parcours la liste complete et on compare si le joueur est dans la liste des matchs de cette semaine
+            # increment the week and start again!
         df_this_week=df_this_week+timedelta(weeks=1)
-    """
-    for i in range(0,len(df)):
-        # we get the previous monday which is the day the glicko rankings get updated
-        current_date=df.iloc[i,:].Date
-        this_monday = current_date + relativedelta(weekday=MO(-1))
-        previous_monday = this_monday + relativedelta(weekday=MO(-2))
-        #print("This monday is: "+this_monday.strftime("%Y.%m.%d"))
-        #print("Previous monday was: "+previous_monday.strftime("%Y.%m.%d"))
-        # we retrieve the matches from previous period (mfpp)
-        mfpp=df[(df.Date>=previous_monday)&(df.Date<this_monday)]
         
-        # we loop on all players in the dataframe to compute their new glicko ranking
     """
-    """
-    glicko_ranking=[(1500,350,0.06),(1500,350,0.06)]
+
     for i in range(1,len(data)):
         winner=data.iloc[i-1,:].Winner
         loser=data.iloc[i-1,:].Loser
