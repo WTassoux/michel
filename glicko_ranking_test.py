@@ -67,6 +67,7 @@ def glickoRanking(df, period, delta_volatility):
                 r=glickoRK[player1]
                 mu=glickoRD[player1]
                 nu=0
+                delta=0
                 wnl=[]
                 for j in range(0,len(p1Matches)):
                     mu_winner=(glickoRK[wp.iloc[i,:].Winner]-1500)/173.7178
@@ -75,9 +76,12 @@ def glickoRanking(df, period, delta_volatility):
                     phi_loser=glicko_loser[1]/173.7178
                     if lwp.iloc[i,:].Winner==player1:
                         nu+=(g(phi_loser)^2)*E(mu_winner,mu_loser,phi_loser)*(1-E(mu_winner,mu_loser,phi_loser))
-                    else:
+                        delta+=g(phi_loser)*(1-E(mu_winner,mu_loser,phi_loser))
+                    elif lwp.iloc[i,:].Loser==player1:
                         nu+=(g(phi_winner)^2)*E(mu_loser,mu_winner,phi_winner)*(1-E(mu_loser,mu_winner,phi_winner))
+                        delta+=g(phi_winner)*(-1-E(mu_loser,mu_winner,phi_winner))
                 nu=1/nu
+                delta=nu*delta
                 
             # If this player didn't play last week and isActive is False, we set isActive to True and do not change the score
             
