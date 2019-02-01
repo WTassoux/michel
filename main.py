@@ -61,8 +61,9 @@ if "-dc" in sys.argv:
 
     ####################################################################
     # We compute the custom ranking:the period is currently 1 day as it is not taken into account at all
-    #df=glickoRanking(df, 1, 0.5)
     df=compute_elo_rankings(df)
+    df=compute_elo2_rankings(df)
+    #df=glickoRanking(df,7,0.1)
 
     ### Let's remove some unwanted matches, such as qualifying rounds - we use those only for a more accurate ELO ranking computation
     df=df[~df.Round.str.contains("Qualifying")]
@@ -71,7 +72,9 @@ if "-dc" in sys.argv:
     df.to_csv('dataframe_output.csv', sep=',', encoding='utf-8',index=False)
     # Percentage of matches with correct prediction from the rankings
     print("Accuracy of ATP ranking for match outcome prediction: "+str(testRankingAccuracy(df,'WRank','LRank')))
-    print("Accuracy of ELO ranking for match outcome prediction: "+str(testRankingAccuracy(df,'elo_loser','elo_winner')))
+    print("Accuracy of Elo ranking for match outcome prediction: "+str(testRankingAccuracy(df,'elo_loser','elo_winner')))
+    print("Accuracy of Elo2 ranking for match outcome prediction: "+str(testRankingAccuracy(df,'elo2_loser','elo2_winner')))
+    #print("Accuracy of Glicko2 ranking for match outcome prediction: "+str(testRankingAccuracy(df,'glickoRK_loser','glickoRK_winner')))
 
 
 if "-df" in sys.argv:
@@ -173,8 +176,8 @@ if "-c" in sys.argv:
     
     start_testing_date=datetime(2017,12,31)
     end_testing_date=datetime(2018,11,19)
-    start_testing_date=datetime(2018,11,18)
-    end_testing_date=datetime(2018,11,19)
+    #start_testing_date=datetime(2018,11,18)
+    #end_testing_date=datetime(2018,11,19)
 
 
     result_set=[]

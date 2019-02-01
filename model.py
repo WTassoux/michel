@@ -126,8 +126,8 @@ def assessStrategyGlobal(test_beginning_match,
     #print(xval)
     #print(yval)
     model=xgbModelBinary(xtrain,ytrain,xval,yval,xgb_params,sample_weights=None)
-    xgb.plot_importance(model, max_num_features=10)
-    plt.show()
+    #xgb.plot_importance(model, max_num_features=10)
+    #plt.show()
     ### ML model assessment
     #cv_output=xgbModelBinaryCV(xtrain,ytrain,xval,yval,xgb_params,sample_weights=None)
     #print("Mean Absolute Error: "+str(cv_output['test-mae-mean'].min()))
