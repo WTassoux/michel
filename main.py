@@ -61,7 +61,7 @@ if "-dc" in sys.argv:
 
     ####################################################################
     # We compute the custom ranking:the period is currently 1 day as it is not taken into account at all
-    df=compute_elo_rankings(df)
+    #df=compute_elo_rankings(df)
     df=compute_elo2_rankings(df)
     #df=glickoRanking(df,7,0.1)
 
@@ -72,8 +72,8 @@ if "-dc" in sys.argv:
     df.to_csv('dataframe_output.csv', sep=',', encoding='utf-8',index=False)
     # Percentage of matches with correct prediction from the rankings
     print("Accuracy of ATP ranking for match outcome prediction: "+str(testRankingAccuracy(df,'WRank','LRank')))
-    print("Accuracy of Elo ranking for match outcome prediction: "+str(testRankingAccuracy(df,'elo_loser','elo_winner')))
-    print("Accuracy of Elo2 ranking for match outcome prediction: "+str(testRankingAccuracy(df,'elo2_loser','elo2_winner')))
+    #print("Accuracy of Elo ranking for match outcome prediction: "+str(testRankingAccuracy(df,'elo_loser','elo_winner')))
+    print("Accuracy of Elo2 ranking for match outcome prediction: "+str(testRankingAccuracy(df,'elo_loser','elo_winner')))
     #print("Accuracy of Glicko2 ranking for match outcome prediction: "+str(testRankingAccuracy(df,'glickoRK_loser','glickoRK_winner')))
 
 
@@ -201,6 +201,12 @@ if "-c" in sys.argv:
                 i += 1
             last_test_match=data[data.Date == (test_day+timedelta(i))].index[0]
             duration_test_matches= last_test_match - first_test_match
+        
+        # the tag fast is to skip the iteration that takes extremely long when running over a whole year
+        if "-fast" in sys.argv:
+            first_test_match=data[data.Date == start_testing_date].index[0]
+            last_test_match=len(data)
+            duration_test_matches=last_test_match - first_test_match
 
         # length of training matches
         training_length=last_test_match-train_beginning_match-duration_test_matches-duration_val_matches
@@ -244,6 +250,9 @@ if "-c" in sys.argv:
         #print(conf)
         result_set.append(conf)
 
+        if "-fast" in sys.argv:
+            break
+
     print(result_set)
     result_set=[el for el in result_set if type(el)!=int]
     conf=pandas.concat(result_set,0)
@@ -260,7 +269,7 @@ if "-c" in sys.argv:
     conf=conf.merge(player1,on="match_index")
     conf=conf.merge(player2,on="match_index")
     #conf=conf.sort_values("confidence",ascending=False)
-    conf=conf.sort_values("date",ascending=False)
+    conf=conf.sort_values("match_index",ascending=False)
     conf=conf.reset_index(drop=True)
     #print(conf)
     conf.to_csv("result_data.csv",index=False)

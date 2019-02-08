@@ -296,8 +296,11 @@ def compute_elo2_rankings(data):
         win_games=numpy.nan_to_num(data.iloc[i-1,:].W1)+numpy.nan_to_num(data.iloc[i-1,:].W2)+numpy.nan_to_num(data.iloc[i-1,:].W3)+numpy.nan_to_num(data.iloc[i-1,:].W4)+numpy.nan_to_num(data.iloc[i-1,:].W5)
         los_games=numpy.nan_to_num(data.iloc[i-1,:].L1)+numpy.nan_to_num(data.iloc[i-1,:].L2)+numpy.nan_to_num(data.iloc[i-1,:].L3)+numpy.nan_to_num(data.iloc[i-1,:].L4)+numpy.nan_to_num(data.iloc[i-1,:].L5)
         if win_games+los_games != 0:
-            ratio=exp((win_games-los_games)/(win_games+los_games))
-        else: ratio=1
+            #ratio=exp((win_games-los_games)/(win_games+los_games))
+            # we use the fermi function to compute the ratio
+            x=(win_games-los_games)/(win_games+los_games)
+            ratio=1.48*2.5/(1+exp((0.25-x)/0.17))
+        else: ratio=1.48
         elow=elo[w]
         elol=elo[l]
         pwin=1 / (1 + 10 ** ((elol - elow) / 400))   
@@ -310,8 +313,8 @@ def compute_elo2_rankings(data):
         ranking_elo.append((elo[data.iloc[i,:].Winner],elo[data.iloc[i,:].Loser])) 
         if i%500==0:
             print(str(i)+" matches computed...")
-    ranking_elo=pandas.DataFrame(ranking_elo,columns=["elo2_winner","elo2_loser"])    
-    ranking_elo["proba_elo2"]=1 / (1 + 10 ** ((ranking_elo["elo2_loser"] - ranking_elo["elo2_winner"]) / 400))  
+    ranking_elo=pandas.DataFrame(ranking_elo,columns=["elo_winner","elo_loser"])    
+    ranking_elo["proba_elo"]=1 / (1 + 10 ** ((ranking_elo["elo_loser"] - ranking_elo["elo_winner"]) / 400))  
     data = pandas.concat([data,ranking_elo],1) 
     return data
 
@@ -432,7 +435,7 @@ def features_recent_creation(outcome,match,past_matches):
     5. Number of sets won during last match played
     6. Did the player finish the previous match? (did not retire)
     7. Was the player injured in the specified period?
-    8. Fatigue score which is the number of games played in the past 7 days with weighted by the factor 0.75 to the power the number of day
+    8. Fatigue score which is the number of games played in the past 3 days with weighted by the factor 0.75 to the power the number of day
     """
     ##### Match information extraction (according to the outcome)
     player=match.Winner if outcome==1 else match.Loser
@@ -467,7 +470,7 @@ def features_recent_creation(outcome,match,past_matches):
     # Fatigue score
     # list of all matches played in the last 7 days
     fs=0
-    SevenDaysAgo=datetime.strptime(date, '%Y-%m-%d').date()-timedelta(days=7)
+    SevenDaysAgo=datetime.strptime(date, '%Y-%m-%d').date()-timedelta(days=3)
     fatigueMatches=todo[todo.Date>=str(SevenDaysAgo)]
     for index, match in fatigueMatches.iterrows():
         day=(datetime.strptime(date, '%Y-%m-%d').date()-datetime.strptime(match["Date"], '%Y-%m-%d').date()).days
@@ -475,7 +478,7 @@ def features_recent_creation(outcome,match,past_matches):
         fs+=match[13:23].sum(skipna=True)*coeff
         #fs+=match["W1"]+match["L1"]+match["W2"]+match["L2"]+match["W3"]+match["L3"]+match["W4"]+match["L4"]+match["W5"]+match["L5"]
     #print(fs)
-    features_recent=[dslm,wlmw,rlpp,nslmp,nswlmp,ilm,iitp,fs]
+    features_recent=[dslm,wlmw,rlpp,nslmp,nswlmp,ilm,iitp]
     return features_recent
 
 def features_h2h_creation(outcome,match,past):
