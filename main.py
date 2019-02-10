@@ -153,6 +153,13 @@ if "-c" in sys.argv:
     features=pandas.read_csv("completed_dataframe.csv")
     data=pandas.read_csv("dataframe_output.csv")
 
+    # let's compute the weights
+    # We want a weight of 1 for the past year, then 0.8 for the year before etc...
+    # we use linear degression
+    weights=[]
+    for index, row in data.iterrows():
+        row['Date']
+
     beg = data.Date.iloc[0]
     end = data.Date.iloc[-1]
 
