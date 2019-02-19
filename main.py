@@ -61,8 +61,8 @@ if "-dc" in sys.argv:
 
     ####################################################################
     # We compute the custom ranking:the period is currently 1 day as it is not taken into account at all
-    #df=compute_elo_rankings(df)
-    df=compute_elo2_rankings(df)
+    df=compute_elo_rankings(df)
+    #df=compute_elo2_rankings(df)
     #df=glickoRanking(df,7,0.1)
 
     ### Let's remove some unwanted matches, such as qualifying rounds - we use those only for a more accurate ELO ranking computation
@@ -72,8 +72,8 @@ if "-dc" in sys.argv:
     df.to_csv('dataframe_output.csv', sep=',', encoding='utf-8',index=False)
     # Percentage of matches with correct prediction from the rankings
     print("Accuracy of ATP ranking for match outcome prediction: "+str(testRankingAccuracy(df,'WRank','LRank')))
-    #print("Accuracy of Elo ranking for match outcome prediction: "+str(testRankingAccuracy(df,'elo_loser','elo_winner')))
-    print("Accuracy of Elo2 ranking for match outcome prediction: "+str(testRankingAccuracy(df,'elo_loser','elo_winner')))
+    print("Accuracy of Elo ranking for match outcome prediction: "+str(testRankingAccuracy(df,'elo_loser','elo_winner')))
+    #print("Accuracy of Elo2 ranking for match outcome prediction: "+str(testRankingAccuracy(df,'elo_loser','elo_winner')))
     #print("Accuracy of Glicko2 ranking for match outcome prediction: "+str(testRankingAccuracy(df,'glickoRK_loser','glickoRK_winner')))
 
 
@@ -118,7 +118,12 @@ if "-df" in sys.argv:
     elo_1 = elo_rankings
     elo_2 = elo_1[["elo_loser","elo_winner","proba_elo"]]
     elo_2.columns = ["elo_winner","elo_loser","proba_elo"]
+    #elo_rankings = df[["glickoRK_winner","glickoRD_winner","glickoRK_loser","glickoRD_loser","proba_glicko"]]
+    #elo_1 = elo_rankings
+    #elo_2 = elo_1[["glickoRK_loser","glickoRD_loser","glickoRK_winner","glickoRD_winner","proba_glicko"]]
+    #elo_2.columns = ["glickoRK_winner","glickoRD_winner","glickoRK_loser","glickoRD_loser","proba_glicko"]
     elo_2.proba_elo = 1-elo_2.proba_elo
+    #elo_2.proba_glicko = 1-elo_2.proba_glicko
     elo_2.index = range(1,2*len(elo_1),2)
     elo_1.index = range(0,2*len(elo_1),2)
     features_elo_ranking = pandas.concat([elo_1,elo_2]).sort_index(kind='merge')
@@ -153,13 +158,6 @@ if "-c" in sys.argv:
     features=pandas.read_csv("completed_dataframe.csv")
     data=pandas.read_csv("dataframe_output.csv")
 
-    # let's compute the weights
-    # We want a weight of 1 for the past year, then 0.8 for the year before etc...
-    # we use linear degression
-    weights=[]
-    for index, row in data.iterrows():
-        row['Date']
-
     beg = data.Date.iloc[0]
     end = data.Date.iloc[-1]
 
@@ -186,6 +184,8 @@ if "-c" in sys.argv:
     #start_testing_date=datetime(2018,11,18)
     #end_testing_date=datetime(2018,11,19)
 
+    # this variable is used in the case of the fast mode where we do not iterate on every single day
+    step_day=start_testing_date
 
     result_set=[]
     for test_day in daterange(start_testing_date, end_testing_date):
@@ -209,11 +209,54 @@ if "-c" in sys.argv:
             last_test_match=data[data.Date == (test_day+timedelta(i))].index[0]
             duration_test_matches= last_test_match - first_test_match
         
+        # let's compute the weights
+        # We want a weight of 1 for the past year, then 0.8 for the year before etc...
+        # we use linear degression
+        weights=[]
+        a=test_day
+        for index, row in data.iterrows():
+            b=data.Date.iloc[index]
+            diff=(a-b).days
+            # we convert to years
+            diff=math.floor(diff/365)
+            if diff>=0 and (1-0.2*diff)>0:
+                weights.append(1-0.2*diff)
+                weights.append(1-0.2*diff)
+            else:
+                weights.append(0)
+                weights.append(0)
+        """with open('weights.csv', 'w') as myfile:
+            wr = csv.writer(myfile, quoting=csv.QUOTE_ALL)
+            wr.writerow(weights)"""
+
         # the tag fast is to skip the iteration that takes extremely long when running over a whole year
+        # we iterate every first of the month
         if "-fast" in sys.argv:
-            first_test_match=data[data.Date == start_testing_date].index[0]
-            last_test_match=len(data)
-            duration_test_matches=last_test_match - first_test_match
+            #the step we use to have the training start again
+            step=50
+            # first day ever until first day of next month
+            if test_day==start_testing_date:
+                first_test_match=data[data.Date == start_testing_date].index[0]
+                step_day=start_testing_date+timedelta(days=step)
+                last_test_match=data[data.Date == step_day].index[0]
+                duration_test_matches=last_test_match - first_test_match
+            elif test_day==step_day:
+                i = 0
+                # we ensure the test day is not a day without matches, otherwise we take the next day with matches
+                while data[data.Date==(step_day+timedelta(i))].empty:
+                    i += 1
+                first_test_match=data[data.Date == (step_day+timedelta(i))].index[0]
+                # case where the next day in the dataset has no played matches . if so, we try to get the following day
+                i = 0
+                step_day=step_day+timedelta(days=step)
+                if step_day>end_testing_date:
+                    step_day=end_testing_date
+                while data[data.Date==(step_day+timedelta(i))].empty:
+                    i += 1
+                last_test_match=data[data.Date == (step_day+timedelta(i))].index[0]
+                duration_test_matches= last_test_match - first_test_match
+            else:
+                continue
 
         # length of training matches
         training_length=last_test_match-train_beginning_match-duration_test_matches-duration_val_matches
@@ -253,12 +296,9 @@ if "-c" in sys.argv:
         print("Matches day: "+str(test_day))
         print("Number of test matches: "+str(duration_test_matches))
         print("Testing set of matches: \n"+str(data[data.Date==test_day]))
-        conf=vibratingAssessStrategyGlobal(first_test_match, training_length, duration_val_matches, duration_test_matches, xgb_params, nb_players, nb_tournaments, features, data)
+        conf=vibratingAssessStrategyGlobal(first_test_match, training_length, duration_val_matches, duration_test_matches, xgb_params, nb_players, nb_tournaments, features, data, weights)
         #print(conf)
         result_set.append(conf)
-
-        if "-fast" in sys.argv:
-            break
 
     print(result_set)
     result_set=[el for el in result_set if type(el)!=int]
@@ -276,7 +316,7 @@ if "-c" in sys.argv:
     conf=conf.merge(player1,on="match_index")
     conf=conf.merge(player2,on="match_index")
     #conf=conf.sort_values("confidence",ascending=False)
-    conf=conf.sort_values("match_index",ascending=False)
+    conf=conf.sort_values("match_index",ascending=True)
     conf=conf.reset_index(drop=True)
     #print(conf)
     conf.to_csv("result_data.csv",index=False)

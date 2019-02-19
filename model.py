@@ -61,7 +61,9 @@ def assessStrategyGlobal(test_beginning_match,
                          nb_tournaments,
                          features,
                          data,
-                         model_name="0"):
+                         weights,
+                         model_name="0"
+                         ):
     """
     Given the id of the first match of the testing set (id=index in the dataframe "data"),
     outputs the confidence dataframe.
@@ -125,7 +127,7 @@ def assessStrategyGlobal(test_beginning_match,
     ### ML model training
     #print(xval)
     #print(yval)
-    model=xgbModelBinary(xtrain,ytrain,xval,yval,xgb_params,sample_weights=None)
+    model=xgbModelBinary(xtrain,ytrain,xval,yval,xgb_params,sample_weights=weights)
     #xgb.plot_importance(model, max_num_features=10)
     #plt.show()
     ### ML model assessment
@@ -166,7 +168,7 @@ def assessStrategyGlobal(test_beginning_match,
     confidenceTest=confidenceTest.sort_values("confidence"+model_name,ascending=False).reset_index(drop=True)
     return confidenceTest
 
-def vibratingAssessStrategyGlobal(test_match, dur_train, duration_val_matches, delta, xgb_params, nb_players, nb_tournaments, xtrain, data):
+def vibratingAssessStrategyGlobal(test_match, dur_train, duration_val_matches, delta, xgb_params, nb_players, nb_tournaments, xtrain, data, weights):
     """
     The ROI is very sensistive to the training set. A few more matches in the training set can 
     change it in a non-negligible way. Therefore it is preferable to run assessStrategyGlobal several times
@@ -180,13 +182,13 @@ def vibratingAssessStrategyGlobal(test_match, dur_train, duration_val_matches, d
 
     # We define a step variable which will change the training/validation set lengths
     step = 10
-    confTest1=assessStrategyGlobal(test_match, dur_train, duration_val_matches, delta, xgb_params, nb_players, nb_tournaments, xtrain, data, "1")
-    confTest2=assessStrategyGlobal(test_match, dur_train - step, duration_val_matches + step, delta, xgb_params, nb_players, nb_tournaments, xtrain, data, "2")
-    confTest3=assessStrategyGlobal(test_match, dur_train + step, duration_val_matches - step, delta, xgb_params, nb_players, nb_tournaments, xtrain, data, "3")
-    confTest4=assessStrategyGlobal(test_match, dur_train - 3 * step, duration_val_matches + 3 * step, delta, xgb_params, nb_players, nb_tournaments, xtrain, data, "4")
-    confTest5=assessStrategyGlobal(test_match, dur_train + 3 * step, duration_val_matches - 3 * step, delta, xgb_params, nb_players, nb_tournaments, xtrain, data, "5")
-    confTest6=assessStrategyGlobal(test_match, dur_train + 2 * step, duration_val_matches - 2 * step, delta, xgb_params, nb_players, nb_tournaments, xtrain, data, "6")
-    confTest7=assessStrategyGlobal(test_match, dur_train - 2 * step, duration_val_matches + 2 * step, delta, xgb_params, nb_players, nb_tournaments, xtrain, data, "7")
+    confTest1=assessStrategyGlobal(test_match, dur_train, duration_val_matches, delta, xgb_params, nb_players, nb_tournaments, xtrain, data, weights, "1")
+    confTest2=assessStrategyGlobal(test_match, dur_train - step, duration_val_matches + step, delta, xgb_params, nb_players, nb_tournaments, xtrain, data, weights, "2")
+    confTest3=assessStrategyGlobal(test_match, dur_train + step, duration_val_matches - step, delta, xgb_params, nb_players, nb_tournaments, xtrain, data, weights, "3")
+    confTest4=assessStrategyGlobal(test_match, dur_train - 3 * step, duration_val_matches + 3 * step, delta, xgb_params, nb_players, nb_tournaments, xtrain, data, weights, "4")
+    confTest5=assessStrategyGlobal(test_match, dur_train + 3 * step, duration_val_matches - 3 * step, delta, xgb_params, nb_players, nb_tournaments, xtrain, data, weights, "5")
+    confTest6=assessStrategyGlobal(test_match, dur_train + 2 * step, duration_val_matches - 2 * step, delta, xgb_params, nb_players, nb_tournaments, xtrain, data, weights, "6")
+    confTest7=assessStrategyGlobal(test_match, dur_train - 2 * step, duration_val_matches + 2 * step, delta, xgb_params, nb_players, nb_tournaments, xtrain, data, weights, "7")
     """
     confTest5=confTest1.copy()
     confTest5.columns = ["Confidence_Player1_Wins5", "Confidence_Player2_Wins5", "PSW", "confidence5", "correct5", "match_index"]

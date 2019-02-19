@@ -431,8 +431,8 @@ def features_recent_creation(outcome,match,past_matches):
     1. Days since last match
     2. Was the last match won ?
     3. Ranking of the last player played
-    4. Number of sets of last match played
-    5. Number of sets won during last match played
+    4. Number of sets of last match played - feature removed
+    5. Number of sets won during last match played - feature removed
     6. Did the player finish the previous match? (did not retire)
     7. Was the player injured in the specified period?
     8. Fatigue score which is the number of games played in the past 3 days with weighted by the factor 0.75 to the power the number of day
@@ -468,7 +468,7 @@ def features_recent_creation(outcome,match,past_matches):
         ilm=numpy.nan
         iitp=numpy.nan
     # Fatigue score
-    # list of all matches played in the last 7 days
+    # list of all matches played in the last 3 days
     fs=0
     SevenDaysAgo=datetime.strptime(date, '%Y-%m-%d').date()-timedelta(days=3)
     fatigueMatches=todo[todo.Date>=str(SevenDaysAgo)]
@@ -478,7 +478,8 @@ def features_recent_creation(outcome,match,past_matches):
         fs+=match[13:23].sum(skipna=True)*coeff
         #fs+=match["W1"]+match["L1"]+match["W2"]+match["L2"]+match["W3"]+match["L3"]+match["W4"]+match["L4"]+match["W5"]+match["L5"]
     #print(fs)
-    features_recent=[dslm,wlmw,rlpp,nslmp,nswlmp,ilm,iitp]
+    #features_recent=[dslm,wlmw,rlpp,nslmp,nswlmp,ilm,iitp,fs]
+    features_recent=[dslm,wlmw,rlpp,ilm,iitp,fs]
     return features_recent
 
 def features_h2h_creation(outcome,match,past):
